@@ -46,3 +46,12 @@ export function debounce(fn, ms = 300) {
     timer = setTimeout(() => fn(...args), ms);
   };
 }
+
+export function formatDateTime(dateStr) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric'
+  }) + ' at ' + d.toLocaleTimeString('en-IN', {
+    hour: '2-digit', minute: '2-digit'
+  });
+}
