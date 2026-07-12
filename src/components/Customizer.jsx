@@ -132,7 +132,7 @@ export default function Customizer({ open, onClose, productId, onAddCustomized }
                     <span className="text-sm font-bold text-white w-8 text-center">{spice}/5</span>
                   </div>
                   <p className="text-xs text-[#8E827B] mt-1">
-                    {['', 'Mild', 'Medium-mild', 'Medium', 'Hot', '🔥 Extra Hot'][spice]}
+                    {['', '🌶 Mild', '🌶🌶 Warm', '🌶🌶🌶 Medium', '🌶🌶🌶🌶 Hot', '🌶🌶🌶🌶🌶 Extreme'][spice]}
                   </p>
                 </div>
 
