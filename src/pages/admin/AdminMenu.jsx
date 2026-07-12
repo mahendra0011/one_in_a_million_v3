@@ -383,7 +383,7 @@ export default function AdminMenu() {
                       Cancel
                     </button>
                     <button onClick={handleSave} disabled={saving || uploading}
-                      className="flex-1 py-2.5 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                      className="flex-1 py-2.5 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-xl font-bold hover:from-orange-700 hover:to-orange-800 transition-all disabled:opacity-60 flex items-center justify-center gap-2 shadow-lg shadow-orange-600/20">
                       {saving && <Loader2 size={16} className="animate-spin" />}
                       {saving ? 'Saving...' : editId ? 'Save Changes' : 'Add Item'}
                     </button>
