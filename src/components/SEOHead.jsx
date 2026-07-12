@@ -18,6 +18,7 @@ const SITE_NAME   = 'One in a Million';
 const SITE_URL    = 'https://oneinamillion.com';
 const DEFAULT_IMG = 'https://res.cloudinary.com/dsjxrospe/image/upload/f_auto,q_auto,w_1200,h_630,c_fill/one%20in%20a%20million/images/million-classic';
 const DEFAULT_DESC = 'Order the best burgers in Jabalpur — customize, track, enjoy. Fresh-made patties, bold Indian spices, lightning-fast delivery.';
+const KEYWORDS = 'burgers, food delivery, Jabalpur, restaurant, online ordering';
 const TWITTER_HANDLE = '@oneinamillion';
 
 export default function SEOHead({
@@ -36,6 +37,7 @@ export default function SEOHead({
       {/* ── Primary ──────────────────────────────────────────────────────── */}
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
+      <meta name="keywords" content={KEYWORDS} />
       <link rel="canonical" href={canonicalUrl} />
       {noindex && <meta name="robots" content="noindex,nofollow" />}
 
