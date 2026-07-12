@@ -140,13 +140,14 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react':  ['react', 'react-dom', 'react-router-dom'],
-          'vendor-redux':  ['@reduxjs/toolkit', 'react-redux'],
-          'vendor-framer': ['framer-motion'],
-          'vendor-three':  ['three', '@react-three/fiber', '@react-three/drei'],
-          'vendor-gsap':   ['gsap', '@gsap/react'],
-          'vendor-query':  ['@tanstack/react-query'],
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (/[\\/](react|react-dom|react-router-dom)[\\/]/.test(id)) return 'vendor-react';
+          if (/[\\/](@reduxjs\/toolkit|react-redux)[\\/]/.test(id)) return 'vendor-redux';
+          if (id.includes('framer-motion')) return 'vendor-framer';
+          if (/[\\/](three|@react-three)[\\/]/.test(id)) return 'vendor-three';
+          if (/[\\/](gsap|@gsap)[\\/]/.test(id)) return 'vendor-gsap';
+          if (id.includes('@tanstack/react-query')) return 'vendor-query';
         },
       },
     },
