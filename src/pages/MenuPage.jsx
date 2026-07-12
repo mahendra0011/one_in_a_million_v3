@@ -166,15 +166,15 @@ export default function MenuPage({ onAddToCart, onCustomize }) {
           </div>
         )}
 
-        {!loading && filtered.length === 0 && (
-          <div className="text-center py-24">
-            <p className="text-5xl mb-4">🔍</p>
-            <p className="text-[#A39791] font-semibold text-lg mb-2">No items found</p>
-            <p className="text-[#8E827B] text-sm mb-6">Try a different filter or search term</p>
-            <button onClick={resetFilters}
-              className="px-5 py-2 rounded-xl bg-[#F07D14] text-white font-bold hover:bg-[#E86C1B]">Reset Filters</button>
-          </div>
-        )}
+{!loading && filtered.length === 0 && (
+           <div className="text-center py-24">
+             <p className="text-5xl mb-4">🔍</p>
+             <p className="text-[#A39791] font-semibold text-lg mb-2">No items found</p>
+             <p className="text-[#8E827B] text-sm mb-6">Try a different filter or search term</p>
+             <button onClick={resetFilters}
+               className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#F07D14] to-[#E86C1B] text-white font-bold hover:shadow-lg hover:shadow-[#F07D14]/30 transition-all">Reset Filters</button>
+           </div>
+         )}
 
         {filtered.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
