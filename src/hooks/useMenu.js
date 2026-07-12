@@ -8,7 +8,7 @@
  */
 import { fetchWithTimeout } from '../lib/utils';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { products as staticProducts, extras, sizeOptions } from '../data/products';
+import { products as staticProducts, extras, sizeOptions, spiceLevels } from '../data/products';
 
 function buildQuery(filters = {}) {
   const params = new URLSearchParams();
@@ -70,7 +70,7 @@ export function useMenu(filters = {}) {
     [products]
   );
 
-  return { products, loading, error, usingFallback, refetch: fetchMenu, productById, extras, sizeOptions };
+  return { products, loading, error, usingFallback, refetch: fetchMenu, productById, extras, sizeOptions, spiceLevels };
 }
 
 // Step 17: dynamic category list for the menu filter bar — falls back to the
