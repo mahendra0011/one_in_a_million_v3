@@ -36,6 +36,7 @@ const products = [
   { id: "zinger-spicy", name: "Zinger Spicy Stack", category: "burgers", subcat: "chicken", price: 239, image: imageUrl('zinger-spicy'), badge: "🔥 Hot", spicy: true, desc: "Double-dredged spicy chicken fillet, ghost pepper sauce, jalapeños, and sriracha slaw." },
   { id: "mushroom-swiss", name: "Mushroom Swiss Burger", category: "burgers", subcat: "special", price: 249, image: imageUrl('mushroom-swiss'), badge: "Special", desc: "Sautéed portobello mushrooms, Swiss cheese, truffle aioli, and rocket leaves." },
   { id: "double-smash", name: "Double Smash Burger", category: "burgers", subcat: "beef", price: 299, image: imageUrl('double-smash'), badge: "Big Stack", desc: "Two smashed beef patties, double cheese, pickles, and our secret thousand island sauce." },
+  { id: "bbq-bacon-burger", name: "BBQ Bacon Burger", category: "burgers", subcat: "beef", price: 279, image: imageUrl('double-smash'), badge: "Popular", desc: "Beef patty, smoked bacon, BBQ glaze, onions, and cheddar." },
   /* ─── SIDES ─── */
   { id: "strip-cravings", name: "Strip Cravings Box", category: "sides", price: 179, image: imageUrl('strip-cravings'), badge: "Golden", desc: "Crispy strips with a flaky seasoned crust and dip on the side." },
   { id: "crispy-bites", name: "Crispy Cheese Bites", category: "sides", price: 149, image: imageUrl('crispy-bites'), badge: "Melty", desc: "Bite-sized golden crunch with soft, cheesy centers." },
