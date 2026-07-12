@@ -6,7 +6,7 @@
  *
  * Step 17: search, category, subcat, price range, veg/nonveg, spicy — all server-side.
  */
-import { fetchWithTimeout } from '../lib/utils';
+import { retryFetchWithTimeout } from '../lib/utils';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { products as staticProducts, extras, sizeOptions, spiceLevels } from '../data/products';
 
@@ -40,7 +40,7 @@ export function useMenu(filters = {}) {
     setError(null);
     try {
       const qs = filterKey;
-      const res = await fetchWithTimeout(`/api/menu${qs ? `?${qs}` : ''}`);
+      const res = await retryFetchWithTimeout(`/api/menu${qs ? `?${qs}` : ''}`);
       if (!res.ok) throw new Error('API error');
       const data = await res.json();
       if (data.ok && Array.isArray(data.items)) {
@@ -84,7 +84,7 @@ export function useMenuCategories() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchWithTimeout('/api/menu/categories')
+    retryFetchWithTimeout('/api/menu/categories')
       .then(res => res.json())
       .then(data => {
         if (cancelled) return;

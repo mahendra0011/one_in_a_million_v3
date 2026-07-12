@@ -1,7 +1,7 @@
 import { X, Minus, Plus, Trash2, ShoppingBag, Tag, ArrowRight, MapPin, Loader2, Navigation, Search } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { updateQty, updateQtyImmediate, removeItem, clearCart, applyCouponResult, setCouponError, clearCoupon, setFulfillment, setDeliveryAddress } from '../store/slices/cartSlice';
-import { fetchWithTimeout, money } from '../lib/utils';
+import { fetchWithTimeout, retryFetchWithTimeout, money } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
@@ -28,7 +28,7 @@ export default function CartDrawer({ open, onClose }) {
   // Step 23 — fetch delivery charge & min order from settings
   const [deliveryCharge, setDeliveryCharge] = useState(39);
   useEffect(() => {
-    fetchWithTimeout('/api/settings')
+    retryFetchWithTimeout('/api/settings')
       .then(r => r.json())
       .then(d => {
         if (d.ok) {

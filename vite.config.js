@@ -2,6 +2,56 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import net from 'net';
+
+function backendGuard() {
+  let backendUp = false;
+  let upgradeHandlers = [];
+
+  function checkBackend(next) {
+    if (backendUp) { next(); return; }
+    const sock = new net.Socket();
+    sock.setTimeout(500);
+    sock.on('connect', () => { sock.destroy(); backendUp = true; next(); });
+    sock.on('error', () => { sock.destroy(); next(new Error('Backend not ready')); });
+    sock.on('timeout', () => { sock.destroy(); next(new Error('Backend not ready')); });
+    sock.connect(3001, 'localhost');
+  }
+
+  return {
+    name: 'backend-guard',
+    configureServer(server) {
+      upgradeHandlers = server.httpServer.listeners('upgrade');
+      server.httpServer.removeAllListeners('upgrade');
+
+      server.httpServer.on('upgrade', (req, socket, head) => {
+        if (req.url?.startsWith('/api') || req.url?.startsWith('/socket.io')) {
+          checkBackend((err) => {
+            if (err) { socket.end(); return; }
+            for (const h of upgradeHandlers) h.call(server.httpServer, req, socket, head);
+          });
+        } else {
+          for (const h of upgradeHandlers) h.call(server.httpServer, req, socket, head);
+        }
+      });
+
+      server.middlewares.use((req, res, next) => {
+        if (req.url.startsWith('/api') || req.url.startsWith('/socket.io')) {
+          checkBackend((err) => {
+            if (err) {
+              res.writeHead(502, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ ok: false, error: 'Backend not ready' }));
+              return;
+            }
+            next();
+          });
+        } else {
+          next();
+        }
+      });
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
@@ -67,6 +117,7 @@ export default defineConfig({
       },
       devOptions: { enabled: false },
     }),
+    backendGuard(),
   ],
 
   server: {
@@ -76,28 +127,11 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        secure: false,
-        timeout: 10000,
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
-            // All proxy errors silently ignored - backend may not be running yet
-          });
-          proxy.on('proxyRes', (proxyRes, req, res) => {
-            // Ensure proper headers
-            proxyRes.headers['Access-Control-Allow-Origin'] = '*';
-          });
-        },
       },
       '/socket.io': {
         target: 'http://localhost:3001',
         ws: true,
         changeOrigin: true,
-        secure: false,
-        timeout: 10000,
-        configure: (proxy) => {
-          // Silently ignore all socket proxy errors
-          proxy.on('error', () => {});
-        },
       },
     },
   },

@@ -99,7 +99,13 @@ if (!JWT_SECRET) {
 mongoose.connect(MONGO_URI).then(() => {
   console.log('✅ MongoDB connected');
   bootstrapAdmin();
-}).catch(console.error);
+  server.listen(PORT, () => {
+    console.log(`✅ Server running on http://localhost:${PORT}`);
+  });
+}).catch(err => {
+  console.error('❌ MongoDB connection failed:', err.message);
+  process.exit(1);
+});
 
 // ─── SOCKET.IO ────────────────────────────────────────────────────────────────
 const STATUS_MESSAGES = {
@@ -1803,7 +1809,3 @@ app.use((req, res) => {
 
 // ─── GLOBAL ERROR HANDLER ───────────────────────────────────────────────────────
 app.use(globalErrorHandler);
-
-server.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-});

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { CreditCard, Smartphone, Wallet, Building2, CheckCircle2, Lock, Shield, ArrowLeft } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { clearCart, clearServerCart } from '../store/slices/cartSlice';
-import { fetchWithTimeout, money } from '../lib/utils';
+import { fetchWithTimeout, retryFetchWithTimeout, money } from '../lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -41,7 +41,7 @@ export default function PaymentPage() {
   // Step 23 — fetch delivery charge from settings
   const [deliveryCharge, setDeliveryCharge] = useState(39);
   useEffect(() => {
-    fetchWithTimeout('/api/settings')
+    retryFetchWithTimeout('/api/settings')
       .then(r => r.json())
       .then(d => { if (d.ok) setDeliveryCharge(d.settings.deliveryCharge ?? 39); })
       .catch(() => {});

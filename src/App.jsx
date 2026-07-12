@@ -115,7 +115,7 @@ export default function App() {
     let cancelled = false;
     import('socket.io-client').then(({ io }) => {
       if (cancelled) return;
-      socket = io(window.location.origin, { transports: ['websocket', 'polling'] });
+      socket = io(window.location.origin, { transports: ['polling', 'websocket'] });
       socket.on('connect', () => socket.emit('join-user', auth.user._id));
       socket.on('notification', (notif) => dispatch(pushNotification(notif)));
     }).catch(() => {});

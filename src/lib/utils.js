@@ -17,6 +17,28 @@ export function fetchWithTimeout(url, options = {}) {
     });
 }
 
+export function retryFetchWithTimeout(url, options = {}, retries = 3) {
+  const { timeout = 15000, ...fetchOptions } = options;
+  return new Promise((resolve, reject) => {
+    const attempt = (n) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      fetch(url, { ...fetchOptions, signal: controller.signal })
+        .finally(() => clearTimeout(timer))
+        .then(resolve)
+        .catch(err => {
+          if (n > 0) {
+            const delay = Math.min(1000 * Math.pow(2, retries - n), 4000);
+            setTimeout(() => attempt(n - 1), delay);
+          } else {
+            reject(err.name === 'AbortError' ? new Error('Request timeout') : err);
+          }
+        });
+    };
+    attempt(retries);
+  });
+}
+
 export function money(amount) {
   return '₹' + Number(amount).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
