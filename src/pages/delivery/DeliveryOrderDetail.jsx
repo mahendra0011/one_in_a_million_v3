@@ -1,4 +1,4 @@
-import { fetchWithTimeout } from '../../lib/utils';
+import { fetchWithTimeout, distanceMeters } from '../../lib/utils';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -86,7 +86,7 @@ export default function DeliveryOrderDetail() {
       }
     } catch (err) { console.error('Failed to fetch route:', err); }
     setRouteLoading(false);
-  }, [headers]);
+  }, []);
 
   const startLiveTracking = useCallback(() => {
     if (!navigator.geolocation || watchIdRef.current != null) return;
@@ -105,7 +105,7 @@ export default function DeliveryOrderDetail() {
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
     );
     setLiveTracking(true);
-  }, [orderId, headers, pushLocation, user?.id]);
+  }, [orderId, pushLocation, user?.id]);
 
   const stopLiveTracking = useCallback(() => {
     if (watchIdRef.current != null) {
@@ -117,14 +117,27 @@ export default function DeliveryOrderDetail() {
 
   useEffect(() => () => stopLiveTracking(), [stopLiveTracking]);
 
+  // Only re-fetch once the delivery boy has moved meaningfully (>25m) AND at
+  // least 15s have passed since the last fetch — not on every GPS ping.
+  // Bug report §3a.
+  const lastRouteFetchRef = useRef({ lat: null, lng: null, time: 0 });
   useEffect(() => {
     if (order?.status === 'out_for_delivery') {
       startLiveTracking();
-      if (order.deliveryBoyLocation?.lat && order.customerLocation?.lat) {
-        fetchRoute(
-          { lat: order.deliveryBoyLocation.lat, lng: order.deliveryBoyLocation.lng },
-          { lat: order.customerLocation.lat, lng: order.customerLocation.lng }
-        );
+      const loc = order.deliveryBoyLocation;
+      if (loc?.lat && order.customerLocation?.lat) {
+        const last = lastRouteFetchRef.current;
+        const now = Date.now();
+        const moved = last.lat == null ? Infinity : distanceMeters(last.lat, last.lng, loc.lat, loc.lng);
+        const elapsed = now - last.time;
+        const shouldFetch = last.lat == null || (elapsed >= 15000 && moved >= 25);
+        if (shouldFetch) {
+          lastRouteFetchRef.current = { lat: loc.lat, lng: loc.lng, time: now };
+          fetchRoute(
+            { lat: loc.lat, lng: loc.lng },
+            { lat: order.customerLocation.lat, lng: order.customerLocation.lng }
+          );
+        }
       }
     }
     if (order?.status === 'delivered') stopLiveTracking();

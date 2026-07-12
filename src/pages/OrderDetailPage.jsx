@@ -1,6 +1,6 @@
 import SEOHead from '../components/SEOHead';
-import { fetchWithTimeout } from '../lib/utils';
-import { useState, useEffect, useCallback } from 'react';
+import { fetchWithTimeout, distanceMeters } from '../lib/utils';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Package, Clock, MapPin, Navigation, Star, ChevronRight, Truck, Radio, ExternalLink, Loader2 } from 'lucide-react';
 import LiveTrackingMap from '../components/LiveTrackingMap';
@@ -39,8 +39,16 @@ export default function OrderDetailPage() {
       .finally(() => setLoading(false));
   }, [orderId]);
 
+  // Kept in a ref so fetchRoute can read the latest order without needing it
+  // in its dependency array — order.deliveryBoyLocation gets a new object
+  // reference on every GPS tick from the socket, which previously gave
+  // fetchRoute a new identity every tick too (bug report §3a).
+  const orderRef = useRef(order);
+  useEffect(() => { orderRef.current = order; }, [order]);
+
   const fetchRoute = useCallback(async () => {
-    if (!order?.deliveryBoyLocation?.lat || !order?.customerLocation?.lat) return;
+    const o = orderRef.current;
+    if (!o?.deliveryBoyLocation?.lat || !o?.customerLocation?.lat) return;
     setRouteLoading(true);
     try {
       const res = await fetchWithTimeout('/api/routes/directions', {
@@ -48,8 +56,8 @@ export default function OrderDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          start: { lat: order.deliveryBoyLocation.lat, lng: order.deliveryBoyLocation.lng },
-          end: { lat: order.customerLocation.lat, lng: order.customerLocation.lng }
+          start: { lat: o.deliveryBoyLocation.lat, lng: o.deliveryBoyLocation.lng },
+          end: { lat: o.customerLocation.lat, lng: o.customerLocation.lng }
         })
       });
       const data = await res.json();
@@ -60,14 +68,26 @@ export default function OrderDetailPage() {
       console.error('Failed to fetch route:', err);
     }
     setRouteLoading(false);
-  }, [order?.deliveryBoyLocation, order?.customerLocation]);
+  }, []);
 
-  // Fetch route when order is out_for_delivery
+  // Fetch route when out_for_delivery, then only re-fetch once the delivery
+  // boy has moved meaningfully (>25m) AND at least 15s have passed since the
+  // last fetch — not on every single GPS ping. Bug report §3a.
+  const lastRouteFetchRef = useRef({ lat: null, lng: null, time: 0 });
   useEffect(() => {
-    if (order?.status === 'out_for_delivery') {
-      fetchRoute();
-    }
-  }, [order?.status, fetchRoute]);
+    if (order?.status !== 'out_for_delivery') return;
+    const loc = order?.deliveryBoyLocation;
+    if (!loc?.lat || !order?.customerLocation?.lat) return;
+
+    const last = lastRouteFetchRef.current;
+    const now = Date.now();
+    const moved = last.lat == null ? Infinity : distanceMeters(last.lat, last.lng, loc.lat, loc.lng);
+    const elapsed = now - last.time;
+    if (last.lat != null && (elapsed < 15000 || moved < 25)) return;
+
+    lastRouteFetchRef.current = { lat: loc.lat, lng: loc.lng, time: now };
+    fetchRoute();
+  }, [order?.status, order?.deliveryBoyLocation, order?.customerLocation, fetchRoute]);
 
   // Live status updates via socket
   useEffect(() => {
