@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 
-// Debounce hook for quantity updates
+  // Debounce hook for quantity updates
 function useDebounce(fn, delay) {
   const timeoutRef = useRef(null);
   return useCallback((...args) => {
@@ -226,6 +226,7 @@ export default function CartDrawer({ open, onClose }) {
                     <p className="text-xs font-bold text-[#A39791] uppercase tracking-wider flex items-center gap-1.5">
                       <MapPin size={12} className="text-[#F07D14]" /> Delivery Address
                     </p>
+                    <p className="text-[10px] text-[#A39791]">Address aur GPS location dono required hain — search se select karein ya "My Location" use karein</p>
                     <div className="flex gap-2">
 <div className="relative flex-1">
                          <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8E827B]" />
@@ -415,6 +416,17 @@ export default function CartDrawer({ open, onClose }) {
                   </div>
                 </div>
 
+                {cart.fulfillment === 'delivery' && (!cart.deliveryAddress || !cart.deliveryCoords?.lat || !cart.deliveryCoords?.lng) ? (
+                  <button
+                    disabled
+                    title="Please enter delivery address and use 'My Location' button to pin GPS coordinates"
+                    className="w-full bg-[#4A3F38] text-[#8E827B] font-bold py-3 rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <MapPin size={18} />
+                    Location Required
+                    <ArrowRight size={16} />
+                  </button>
+                ) : (
                 <Link
                   to="/payment"
                   onClick={onClose}
@@ -424,6 +436,7 @@ export default function CartDrawer({ open, onClose }) {
                   Proceed to Checkout
                   <ArrowRight size={16} />
                 </Link>
+                )}
               </motion.div>
             )}
           </motion.aside>

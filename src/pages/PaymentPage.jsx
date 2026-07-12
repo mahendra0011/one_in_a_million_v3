@@ -28,12 +28,15 @@ export default function PaymentPage() {
   const { user } = useSelector((state) => state.auth);
   const items = cart.items;
 
-  // Redirect to menu if cart is empty and order not just placed
+  // Redirect to menu if cart is empty, or back to cart if delivery location missing
   useEffect(() => {
     if (!paid && items.length === 0) {
       navigate('/menu', { replace: true });
     }
-  }, [items.length, paid, navigate]);
+    if (!paid && cart.fulfillment === 'delivery' && (!cart.deliveryAddress || !cart.deliveryCoords?.lat || !cart.deliveryCoords?.lng)) {
+      navigate('/menu', { replace: true });
+    }
+  }, [items.length, paid, navigate, cart.fulfillment, cart.deliveryAddress, cart.deliveryCoords]);
 
   // Step 23 — fetch delivery charge from settings
   const [deliveryCharge, setDeliveryCharge] = useState(39);

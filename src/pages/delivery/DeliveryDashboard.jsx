@@ -8,6 +8,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { logout } from '../../store/slices/authSlice';
 import { useDispatch } from 'react-redux';
 import LiveTrackingMap from '../../components/LiveTrackingMap';
+import { enableBackgroundTracking, disableBackgroundTracking } from '../../lib/backgroundGeolocation';
 
 async function safeJson(res) {
   try { return await res.json(); } catch { return { ok: false, error: 'Invalid response' }; }
@@ -177,9 +178,26 @@ const fetchOrders = useCallback(async (silent = false) => {
     setRouteLoading(false);
   }, [headers]);
 
+  const snapToRoad = useCallback(async (path) => {
+    if (!path || path.length < 3) return;
+    try {
+      const res = await fetchWithTimeout('/api/routes/snap', {
+        method: 'POST', headers, credentials: 'include',
+        body: JSON.stringify({ coordinates: path }),
+      });
+      const data = await res.json();
+      if (data.ok && data.matched?.snapped_waypoints?.length >= 2) {
+        setRouteGeometry(data.matched.snapped_waypoints.map(c => ({ lat: c[1], lng: c[0] })));
+      } else if (data.ok && data.matched?.routes?.[0]?.geometry?.coordinates?.length >= 2) {
+        setRouteGeometry(data.matched.routes[0].geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] })));
+      }
+    } catch {}
+  }, [headers]);
+
   // Live tracking
    const startLiveTracking = useCallback((orderId) => {
     if (!navigator.geolocation || watchIdRef.current != null) return;
+    const updateCountRef = { current: 0 };
     watchIdRef.current = navigator.geolocation.watchPosition(
       async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
@@ -189,7 +207,13 @@ const fetchOrders = useCallback(async (silent = false) => {
           const last = prev[prev.length - 1];
           const newPoint = { lat, lng };
           if (!last || (Math.abs(last.lat - lat) > 0.0001 || Math.abs(last.lng - lng) > 0.0001)) {
-            return [...prev, newPoint].slice(-50); // Keep last 50 points
+            const updated = [...prev, newPoint].slice(-50);
+            // Snap-to-road every 8 updates for smooth tracking
+            updateCountRef.current += 1;
+            if (updateCountRef.current % 8 === 0 && updated.length >= 3) {
+              snapToRoad(updated);
+            }
+            return updated;
           }
           return prev;
         });
@@ -203,7 +227,7 @@ const fetchOrders = useCallback(async (silent = false) => {
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
     );
     setLiveTracking(true);
-  }, [headers, pushLocation, user?.id]);
+  }, [headers, pushLocation, user?.id, snapToRoad]);
 
   const stopLiveTracking = useCallback(() => {
     if (watchIdRef.current != null) {
@@ -258,18 +282,23 @@ const fetchOrders = useCallback(async (silent = false) => {
     );
   }, [headers, locationUpdating]);
 
-  // Auto background update when online
+  // Auto background update when online + background geolocation (wake lock)
   useEffect(() => {
+    let cleanupBg = null;
     if (isOnline) {
       pushMyLocation(); // immediate first update
       locationIntervalRef.current = setInterval(pushMyLocation, LOCATION_UPDATE_INTERVAL);
+      // Enable background tracking with wake lock so location works even when screen is locked
+      cleanupBg = enableBackgroundTracking(pushMyLocation);
     } else {
+      disableBackgroundTracking();
       if (locationIntervalRef.current) {
         clearInterval(locationIntervalRef.current);
         locationIntervalRef.current = null;
       }
     }
     return () => {
+      if (cleanupBg) cleanupBg();
       if (locationIntervalRef.current) {
         clearInterval(locationIntervalRef.current);
         locationIntervalRef.current = null;

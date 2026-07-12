@@ -888,6 +888,10 @@ app.post('/api/orders', orderLimiter, v.vCreateOrder, validate, async (req, res)
     const customerLocation = {};
     if (req.body.customer?.deliveryAddress) customerLocation.address = req.body.customer.deliveryAddress;
     if (req.body.customer?.deliveryCoords) { customerLocation.lat = req.body.customer.deliveryCoords.lat; customerLocation.lng = req.body.customer.deliveryCoords.lng; }
+    if (req.body.fulfillment === 'delivery') {
+      if (!customerLocation.address) return res.status(400).json({ ok: false, error: 'Delivery address required' });
+      if (customerLocation.lat == null || customerLocation.lng == null) return res.status(400).json({ ok: false, error: 'Delivery location coordinates required — please use "My Location" button or select from search results' });
+    }
     const order = await Order.create({ ...req.body, orderId, customerLocation });
     notifyAdmin('new-order', order);
     if (order.userId && order.totals?.total) {
