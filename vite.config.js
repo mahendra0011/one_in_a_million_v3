@@ -71,19 +71,20 @@ export default defineConfig({
 
   server: {
     port: 5173,
+    strictPort: false,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        // ECONNREFUSED silently ignore karo — server baad mein start ho sakta hai
-        configure: (proxy) => {
-          proxy.on('error', (err, _req, res) => {
-            // ECONNREFUSED = server abhi start nahi hua, ignore karo
-            if (err.code === 'ECONNREFUSED') return;
-            if (res && typeof res.writeHead === 'function' && !res.headersSent) {
-              res.writeHead(502, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ ok: false, error: 'Backend server not reachable' }));
-            }
+        secure: false,
+        timeout: 10000,
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            // All proxy errors silently ignored - backend may not be running yet
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            // Ensure proper headers
+            proxyRes.headers['Access-Control-Allow-Origin'] = '*';
           });
         },
       },
@@ -91,8 +92,10 @@ export default defineConfig({
         target: 'http://localhost:3001',
         ws: true,
         changeOrigin: true,
+        secure: false,
+        timeout: 10000,
         configure: (proxy) => {
-          // ws ECONNREFUSED bhi silently ignore
+          // Silently ignore all socket proxy errors
           proxy.on('error', () => {});
         },
       },
