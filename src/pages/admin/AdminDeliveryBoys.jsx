@@ -18,7 +18,7 @@ export default function AdminDeliveryBoys() {
   const fetchBoys = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetchWithTimeout('/api/admin/delivery-boys', { headers: { credentials: 'include' } });
+      const res = await fetchWithTimeout('/api/admin/delivery-boys', { credentials: 'include' });
       const data = await res.json();
       if (data.ok) setBoys(data.boys);
     } catch {}

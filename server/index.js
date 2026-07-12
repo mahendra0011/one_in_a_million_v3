@@ -1774,6 +1774,24 @@ app.get('/api/geocode/search', v.vGeocodeSearch, validate, async (req, res) => {
   }
 });
 
+// ─── SIMPLE LOGIN (backward compat alias for unified login) ──────────────────
+// AccountPage unified flow use karta hai, ye route direct API callers ke liye hai
+app.post('/api/auth/login', authLimiter, async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ ok: false, error: 'Email and password required' });
+    const user = await User.findOne({ email });
+    if (!user || !user.isActive) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    const valid = await user.comparePassword(password);
+    if (!valid) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    const cookieMap = { admin: 'bim_admin_token', delivery_boy: 'bim_delivery_token', user: 'bim_token' };
+    const cookieName = cookieMap[user.role] || 'bim_token';
+    const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    setAuthCookie(res, token, cookieName, 7 * 24 * 60 * 60 * 1000);
+    res.json({ ok: true, user: { id: user._id, name: user.name, email: user.email, phone: user.phone, role: user.role, loyaltyPoints: user.loyaltyPoints } });
+  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+});
+
 // ─── 404 HANDLER ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ ok: false, error: `Route not found: ${req.method} ${req.path}` });
