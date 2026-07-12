@@ -8,6 +8,7 @@ import { Star, Quote, ThumbsUp, Heart, MessageCircle, ChevronLeft, ChevronRight,
 
 gsap.registerPlugin(ScrollTrigger);
 
+// Helper function to format time since review was posted
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
