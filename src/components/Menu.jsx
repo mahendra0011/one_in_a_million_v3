@@ -95,11 +95,17 @@ export default function Menu({ onCustomize, onQuickAdd }) {
           ))}
         </div>
 
-        {visibleProducts.length === 0 && (
-          <div className="text-center py-20">
-            <p className="text-[#A39791] text-lg">No items found in this category</p>
-          </div>
-        )}
+{visibleProducts.length === 0 && (
+           <div className="text-center py-20">
+             <p className="text-[#A39791] text-lg">No items found in this category</p>
+             <button 
+               onClick={() => setFilter('all')}
+               className="mt-4 px-4 py-2 rounded-lg bg-[#F07D14] text-white font-bold hover:bg-[#E86C1B] transition-colors text-sm"
+             >
+               View All Items
+             </button>
+           </div>
+         )}
       </div>
     </section>
   );
