@@ -235,11 +235,11 @@ export default function AdminDashboard() {
         {loading && <span className="text-sm text-gray-400 animate-pulse">Loading...</span>}
       </div>
 
-      {/* ── PENDING ALERT ──────────────────────────────────────────────────── */}
-      {!loading && pendingCount >= 3 && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-300 rounded-xl px-5 py-3.5">
-          <AlertTriangle size={20} className="text-amber-500 shrink-0 animate-pulse" />
-          <div>
+{/* ── PENDING ALERT ──────────────────────────────────────────────────── */}
+       {!loading && pendingCount >= 3 && (
+         <div className="flex items-center gap-3 bg-amber-50 border border-amber-300 rounded-xl px-5 py-3.5">
+           <AlertTriangle size={20} className="text-amber-500 shrink-0 animate-pulse" />
+           <div>
             <p className="font-bold text-amber-800 text-sm">
               ⚠️ {pendingCount} order{pendingCount > 1 ? 's' : ''} waiting for confirmation!
             </p>

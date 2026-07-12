@@ -1,0 +1,237 @@
+/* ===== 3D Burger Component (only — everything else is Tailwind) ===== */
+
+@keyframes burgerFloat {
+  0%, 100% { transform: translateY(0) rotateZ(-2deg); }
+  50% { transform: translateY(-20px) rotateZ(3deg); }
+}
+
+@keyframes orbitSpin {
+  to { rotate: 360deg; }
+}
+
+@keyframes miniHop {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* ---- 3D Burger Hero ---- */
+.burger-hero {
+  position: relative;
+  width: min(430px, 42vw);
+  height: min(430px, 42vw);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  perspective: 950px;
+}
+
+.burger3d {
+  --rx: -14deg;
+  --ry: 18deg;
+  position: relative;
+  width: 330px;
+  height: 330px;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 180ms ease;
+}
+
+.burger3d::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  width: 260px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(23, 19, 21, 0.35);
+  filter: blur(18px);
+  transform: translateX(-50%) rotateX(68deg);
+}
+
+.burger-stack {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: burgerFloat 5.2s ease-in-out infinite;
+}
+
+.burger-layer {
+  position: absolute;
+  left: 48px;
+  right: 48px;
+  height: 44px;
+  border-radius: 50%;
+  transform-style: preserve-3d;
+  transform: rotateX(68deg);
+  box-shadow: 0 20px 35px rgba(23, 19, 21, 0.28);
+}
+
+.burger-layer::before {
+  content: "";
+  position: absolute;
+  inset: 9px 0 -15px;
+  border-radius: 50%;
+  filter: blur(1px);
+}
+
+.burger-layer.bun.top {
+  top: 38px;
+  height: 72px;
+  background: radial-gradient(circle at 42% 22%, #ffe2a4 0 8%, transparent 9%),
+    radial-gradient(circle at 58% 30%, #fff1c7 0 5%, transparent 6%),
+    linear-gradient(180deg, #f8b751 0%, #b85f1e 92%);
+}
+
+.burger-layer.bun.top::before { background: #8f4819; }
+
+.burger-layer.bun.top i {
+  position: absolute;
+  width: 7px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 244, 211, 0.95);
+}
+
+.burger-layer.bun.top i:nth-child(1) { top: 18px; left: 70px; transform: rotate(22deg); }
+.burger-layer.bun.top i:nth-child(2) { top: 26px; left: 120px; transform: rotate(-12deg); }
+.burger-layer.bun.top i:nth-child(3) { top: 34px; right: 70px; transform: rotate(18deg); }
+.burger-layer.bun.top i:nth-child(4) { top: 22px; right: 112px; transform: rotate(-18deg); }
+.burger-layer.bun.top i:nth-child(5) { top: 42px; left: 95px; transform: rotate(9deg); }
+
+.burger-layer.lettuce {
+  top: 105px;
+  background: #6cc94c;
+  clip-path: polygon(0 46%, 8% 26%, 18% 48%, 30% 25%, 40% 50%, 52% 28%, 62% 48%, 73% 25%, 83% 49%, 94% 27%, 100% 48%, 100% 76%, 0 76%);
+}
+
+.burger-layer.lettuce::before { background: #3b9b34; }
+
+.burger-layer.cheese {
+  top: 132px;
+  height: 36px;
+  border-radius: 10px;
+  background: #ffd842;
+  clip-path: polygon(3% 16%, 97% 6%, 94% 72%, 72% 64%, 61% 100%, 43% 65%, 27% 88%, 12% 63%, 0 71%);
+}
+
+.burger-layer.cheese::before { background: #d99713; border-radius: 12px; }
+
+.burger-layer.tomato {
+  top: 160px;
+  height: 32px;
+  background: #e73b29;
+}
+
+.burger-layer.tomato::before { background: #a7221d; }
+
+.burger-layer.patty {
+  top: 188px;
+  height: 54px;
+  background:
+    radial-gradient(circle at 25% 35%, rgba(255, 255, 255, 0.12) 0 4%, transparent 5%),
+    radial-gradient(circle at 64% 42%, rgba(255, 255, 255, 0.1) 0 5%, transparent 6%),
+    linear-gradient(180deg, #70351f, #321814);
+}
+
+.burger-layer.patty::before { background: #24110f; }
+
+.burger-layer.onion {
+  top: 236px;
+  height: 26px;
+  background: repeating-radial-gradient(ellipse at center, rgba(255,255,255,0.96) 0 7px, rgba(175,90,190,0.9) 8px 10px, transparent 11px 16px);
+}
+
+.burger-layer.onion::before { background: rgba(97, 40, 109, 0.8); }
+
+.burger-layer.bun.bottom {
+  top: 260px;
+  height: 50px;
+  background: linear-gradient(180deg, #d98731, #8e4719);
+}
+
+.burger-layer.bun.bottom::before { background: #743715; }
+
+.orbit {
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  transform-style: preserve-3d;
+}
+
+.orbit-one {
+  inset: 36px;
+  transform: rotateX(64deg) rotateZ(24deg);
+  animation: orbitSpin 8s linear infinite;
+}
+
+.orbit-two {
+  inset: 62px;
+  transform: rotateX(72deg) rotateZ(-18deg);
+  border-color: rgba(255, 196, 77, 0.65);
+  animation: orbitSpin 10s linear infinite reverse;
+}
+
+/* ---- Build Plate Mini Burgers ---- */
+.build-plate {
+  position: relative;
+  width: 320px;
+  height: 250px;
+  perspective: 700px;
+}
+
+.build-shadow {
+  position: absolute;
+  left: 38px;
+  right: 38px;
+  bottom: 34px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(23, 19, 21, 0.22);
+  filter: blur(12px);
+}
+
+.mini-burger {
+  position: absolute;
+  width: 145px;
+  height: 92px;
+  border-radius: 50% 50% 18px 18px;
+  background:
+    linear-gradient(#f0a945 0 28%, #69b647 29% 38%, #ffcf35 39% 48%, #5b2b1c 49% 68%, #d6822b 69%);
+  box-shadow: 0 20px 36px rgba(23, 19, 21, 0.2);
+  transform-style: preserve-3d;
+  animation: miniHop 3.4s ease-in-out infinite;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 1020px) {
+  .burger-hero {
+    opacity: 0.82;
+    right: -70px;
+    bottom: 34px;
+  }
+}
+
+@media (max-width: 720px) {
+  .burger-hero {
+    width: 250px;
+    height: 250px;
+    right: -142px;
+    bottom: -32px;
+    opacity: 0.76;
+  }
+
+  .burger3d {
+    width: 250px;
+    height: 250px;
+    scale: 0.58;
+  }
+}

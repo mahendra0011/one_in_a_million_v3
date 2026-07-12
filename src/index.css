@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-fredoka: "Fredoka", "Inter", sans-serif;
+  
+  /* 🎨 Premium Dark Palette — One in a Million */
+  --color-ink: #FFFFFF;
+  --color-charcoal: #1A1310;
+  --color-paper: #0A0604;
+  --color-cream: #8E827B;
+  --color-orange: #F07D14;
+  --color-orange-deep: #E86C1B;
+  --color-sun: #F07D14;
+  --color-mint: #9adf9d;
+  --color-teal: #0f7c83;
+  --color-blue: #c9e9f6;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-card: #16100D;
+  --color-accent-badge: #B83A1B;
+  --color-muted: #A39791;
+  --radius-default: 10px;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background: var(--color-paper);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+}
+
+@layer utilities {
+  .font-fredoka {
+    font-family: var(--font-fredoka);
+  }
+  .font-anton {
+    font-family: "Anton", "Inter", sans-serif;
+  }
+}
+
+/* Hide scrollbar for tab nav */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Custom Scrollbar for better UX */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-paper);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-charcoal);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-orange);
+}
