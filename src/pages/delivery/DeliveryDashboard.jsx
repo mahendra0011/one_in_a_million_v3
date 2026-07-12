@@ -222,7 +222,7 @@ export default function DeliveryDashboard() {
   const photoInputRef = useRef(null);
   const watchIdRef = useRef(null);
 
-  const { pushLocation } = useSocket({
+  const { pushLocation, isConnected } = useSocket({
     joinDelivery: user?.id,
     onNewAssignment: (order) => {
       setOrders(prev => {
@@ -238,6 +238,9 @@ export default function DeliveryDashboard() {
       }
     },
   });
+
+  const isConnectedRef = useRef(isConnected);
+  useEffect(() => { isConnectedRef.current = isConnected; }, [isConnected]);
 
   const fetchOrders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -326,7 +329,6 @@ export default function DeliveryDashboard() {
     watchIdRef.current = navigator.geolocation.watchPosition(
       async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
-        pushLocation({ orderId, lat, lng, deliveryBoyId: user?.id });
         setDriverPath(prev => {
           const last = prev[prev.length - 1];
           const newPoint = { lat, lng };
@@ -338,7 +340,15 @@ export default function DeliveryDashboard() {
           }
           return prev;
         });
-        try { await fetchWithTimeout(`/api/delivery/orders/${orderId}/location`, { method: 'PATCH', headers, body: JSON.stringify({ lat, lng }) }); } catch {}
+        // Socket is the primary, fast transport. REST PATCH is only a
+        // fallback for when the socket is disconnected — previously both
+        // fired on every tick, doubling requests and hastening rate-limit
+        // hits. Bug report §3e.
+        if (isConnectedRef.current) {
+          pushLocation({ orderId, lat, lng, deliveryBoyId: user?.id });
+        } else {
+          try { await fetchWithTimeout(`/api/delivery/orders/${orderId}/location`, { method: 'PATCH', headers, body: JSON.stringify({ lat, lng }) }); } catch {}
+        }
       },
       () => {},
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }

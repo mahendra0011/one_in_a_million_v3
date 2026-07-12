@@ -57,7 +57,9 @@ export default function DeliveryOrderDetail() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [markLoading, setMarkLoading] = useState(false);
 
-  const { pushLocation } = useSocket({ joinDelivery: user?.id });
+  const { pushLocation, isConnected } = useSocket({ joinDelivery: user?.id });
+  const isConnectedRef = useRef(isConnected);
+  useEffect(() => { isConnectedRef.current = isConnected; }, [isConnected]);
 
   const fetchOrder = useCallback(async () => {
     setLoading(true); setError('');
@@ -93,13 +95,23 @@ export default function DeliveryOrderDetail() {
     watchIdRef.current = navigator.geolocation.watchPosition(
       async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
-        pushLocation({ orderId, lat, lng, deliveryBoyId: user?.id });
-        try {
-          await fetchWithTimeout(`/api/delivery/orders/${orderId}/location`, {
-            method: 'PATCH', headers, body: JSON.stringify({ lat, lng }),
-          });
-          setOrder(prev => prev ? { ...prev, deliveryBoyLocation: { lat, lng, updatedAt: new Date().toISOString() } } : prev);
-        } catch {}
+        // Local optimistic update so the delivery boy's own map reflects
+        // their position immediately, regardless of which transport below
+        // reaches the backend.
+        setOrder(prev => prev ? { ...prev, deliveryBoyLocation: { lat, lng, updatedAt: new Date().toISOString() } } : prev);
+        // Socket is the primary, fast transport. REST PATCH is only a
+        // fallback for when the socket is disconnected — previously both
+        // fired on every tick, doubling requests and hastening rate-limit
+        // hits. Bug report §3e.
+        if (isConnectedRef.current) {
+          pushLocation({ orderId, lat, lng, deliveryBoyId: user?.id });
+        } else {
+          try {
+            await fetchWithTimeout(`/api/delivery/orders/${orderId}/location`, {
+              method: 'PATCH', headers, body: JSON.stringify({ lat, lng }),
+            });
+          } catch {}
+        }
       },
       () => {},
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
