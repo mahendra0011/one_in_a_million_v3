@@ -46,15 +46,16 @@ export default function ProductCard({ product, onCustomize, onQuickAdd, index })
       {/* ─── Image Asset Area ─── */}
       <div className="relative overflow-hidden rounded-[14px]">
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10" />
-        <img
-          src={product.image}
-          alt={product.name}
-          loading={index < 4 ? 'eager' : 'lazy'}
-          decoding="async"
-          width={600}
-          height={600}
-          className="w-full aspect-square object-cover rounded-[14px] transition-transform duration-700 group-hover:scale-110"
-        />
+<img
+           src={product.image}
+           alt={product.name}
+           loading={index < 4 ? 'eager' : 'lazy'}
+           decoding="async"
+           width={600}
+           height={600}
+           className="w-full aspect-square object-cover rounded-[14px] transition-transform duration-700 group-hover:scale-110 bg-gray-800"
+           onLoad={(e) => e.target.classList.remove('bg-gray-800')}
+         />
         {product.badge && (
           <span className="absolute top-3 left-3 z-20 rounded-full bg-[#F07D14] text-[#000000] text-[11px] font-extrabold uppercase tracking-wider px-3 py-1.5 shadow-[0_4px_12px_rgba(240,125,20,0.5)]">
             {product.badge}
