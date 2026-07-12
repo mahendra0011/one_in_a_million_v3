@@ -207,16 +207,17 @@ export default function ContactPage() {
                 <h2 className="font-fredoka text-3xl font-bold text-white mb-6">Get in Touch</h2>
                 <p className="text-[#A39791] mb-8">Fill out the form below and we'll get back to you within 24 hours.</p>
 
-                <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); alert('Message sent!'); }}>
-                  <div className="form-group grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-bold text-white mb-2">Full Name *</label>
-                      <input
-                        required
-                        type="text"
-                        placeholder="John Doe"
-                        className="w-full px-4 py-3.5 rounded-xl bg-[#16100D] border-2 border-white/10 text-white placeholder:text-[#8E827B] focus:outline-none focus:border-[#F07D14] focus:ring-4 focus:ring-[#F07D14]/20 transition-all"
-                      />
+<form className="space-y-6" onSubmit={(e) => { e.preventDefault(); alert('Message sent! We will get back to you soon.'); }}>
+                   <div className="form-group grid sm:grid-cols-2 gap-4">
+                     <div>
+                       <label className="block text-sm font-bold text-white mb-2">Full Name *</label>
+                       <input
+                         required
+                         type="text"
+                         placeholder="John Doe"
+                         className="w-full px-4 py-3.5 rounded-xl bg-[#16100D] border-2 border-white/10 text-white placeholder:text-[#8E827B] focus:outline-none focus:border-[#F07D14] focus:ring-4 focus:ring-[#F07D14]/20 transition-all"
+                         autoComplete="name"
+                       />
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-white mb-2">Email Address *</label>
