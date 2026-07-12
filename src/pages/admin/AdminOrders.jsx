@@ -356,16 +356,16 @@ export default function AdminOrders() {
                       {/* Delivery Boy assign */}
                       <td className="px-4 py-4" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
-                          <select
-                            value={order.assignedTo?._id || order.assignedTo || ''}
-                            disabled={assigning === id}
-                            onChange={e => assignDeliveryBoy(order, e.target.value)}
-                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500 disabled:opacity-50 bg-white max-w-[140px]">
-                            <option value="">Unassigned</option>
-                            {deliveryBoys.map(b => (
-                              <option key={b._id} value={b._id}>{b.name}{b.isOnline ? ' 🟢' : ''}</option>
-                            ))}
-                          </select>
+<select
+                             value={order.assignedTo?._id || order.assignedTo || ''}
+                             disabled={assigning === id}
+                             onChange={e => assignDeliveryBoy(order, e.target.value)}
+                             className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500 disabled:opacity-50 bg-white text-gray-900 max-w-[140px]">
+                             <option value="" className="bg-white text-gray-900">Unassigned</option>
+                             {deliveryBoys.map(b => (
+                               <option key={b._id} value={b._id} className="bg-white text-gray-900">{b.name}{b.isOnline ? ' 🟢' : ''}</option>
+                             ))}
+                           </select>
                           {assigning === id && <div className="w-3.5 h-3.5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />}
                         </div>
                       </td>
@@ -375,13 +375,13 @@ export default function AdminOrders() {
                       {/* Status change + Print */}
                       <td className="px-4 py-4" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
-                          <select
-                            value={order.status}
-                            disabled={updating === id}
-                            onChange={e => updateStatus(order, e.target.value)}
-                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500 disabled:opacity-50 bg-white">
-                            {STATUS_OPTIONS.map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
-                          </select>
+<select
+                             value={order.status}
+                             disabled={updating === id}
+                             onChange={e => updateStatus(order, e.target.value)}
+                             className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500 disabled:opacity-50 bg-white text-gray-900">
+                             {STATUS_OPTIONS.map(s => <option key={s} value={s} className="capitalize bg-white text-gray-900">{s}</option>)}
+                           </select>
                           {updating === id
                             ? <div className="w-3.5 h-3.5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
                             : <button onClick={() => printOrder(order)} title="Print kitchen copy"

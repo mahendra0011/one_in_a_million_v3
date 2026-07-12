@@ -506,16 +506,10 @@ function TrackDelivery({ order }) {
           <p className="text-[#A39791] text-xs">
             Lat: {loc.lat.toFixed(5)}, Lng: {loc.lng.toFixed(5)}
           </p>
-          <a
-            href={`https://maps.google.com/?q=${loc.lat},${loc.lng}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center justify-center gap-2 bg-[#F07D14]/15 border border-[#F07D14]/30 rounded-xl py-2.5 text-[#F07D14] text-sm font-bold hover:bg-[#F07D14]/25 transition-colors"
-          >
-            <MapPin size={14} />
-            Open in Google Maps
-            <ExternalLink size={12} />
-          </a>
+          <div className="flex items-center gap-2 text-[#8E827B] text-xs">
+            <MapPin size={12} />
+            {loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}
+          </div>
         </div>
       ) : (
         <div className="bg-[#16100D] rounded-xl p-3 flex items-center gap-2">
@@ -1158,13 +1152,14 @@ export default function AccountPage() {
               <p className="text-[#F07D14] font-bold text-lg">{user?.loyaltyPoints || 0}</p>
               <p className="text-[#8E827B] text-xs">Points</p>
             </div>
-            <button onClick={async () => {
+<button onClick={async () => {
                 try { await fetchWithTimeout('/api/auth/logout', { method: 'POST', credentials: 'include' }); } catch {}
                 dispatch(logout());
+                navigate('/login', { replace: true });
               }}
               className="p-2.5 rounded-xl bg-[#1A1310] border border-white/5 text-[#8E827B] hover:text-red-400 transition-colors">
-              <LogOut size={18} />
-            </button>
+                <LogOut size={18} />
+              </button>
           </div>
         </div>
 

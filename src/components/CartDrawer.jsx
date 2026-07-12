@@ -1,10 +1,11 @@
-import { X, Minus, Plus, Trash2, ShoppingBag, Tag, ArrowRight, MapPin, Loader2, Navigation, Search } from 'lucide-react';
+import { X, Minus, Plus, Trash2, ShoppingBag, Tag, ArrowRight, MapPin, Loader2 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { updateQty, updateQtyImmediate, removeItem, clearCart, applyCouponResult, setCouponError, clearCoupon, setFulfillment, setDeliveryAddress } from '../store/slices/cartSlice';
 import { fetchWithTimeout, retryFetchWithTimeout, money } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import LocationPicker from './LocationPicker';
 
   // Debounce hook for quantity updates
 function useDebounce(fn, delay) {
@@ -22,8 +23,6 @@ export default function CartDrawer({ open, onClose }) {
   const [couponInput, setCouponInput] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [addressInput, setAddressInput] = useState(cart.deliveryAddress || '');
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationError, setLocationError] = useState('');
 
   // Step 23 — fetch delivery charge & min order from settings
   const [deliveryCharge, setDeliveryCharge] = useState(39);
@@ -88,67 +87,9 @@ export default function CartDrawer({ open, onClose }) {
     dispatch(setDeliveryAddress({ address: addressInput, coords: cart.deliveryCoords }));
   };
 
-  // Step 3 — Manual location geocoding
-  const [searchingAddress, setSearchingAddress] = useState(false);
-  const [addressSearchResults, setAddressSearchResults] = useState([]);
-  const [showResults, setShowResults] = useState(false);
-
-  const searchAddress = async (query) => {
-    if (!query || query.length < 3) {
-      setAddressSearchResults([]);
-      return;
-    }
-    setSearchingAddress(true);
-    try {
-      const res = await fetchWithTimeout(`/api/geocode/search?q=${encodeURIComponent(query)}&limit=5`);
-      const data = await res.json();
-      if (data.ok) setAddressSearchResults(data.results);
-    } catch {}
-    setSearchingAddress(false);
-  };
-
-  const selectSearchResult = (result) => {
-    const { lat, lng, display_name } = result;
-    setAddressInput(display_name);
-    dispatch(setDeliveryAddress({ address: display_name, coords: { lat, lng } }));
-    setAddressSearchResults([]);
-    setShowResults(false);
-  };
-
-  const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError('Geolocation not supported by your browser.');
-      return;
-    }
-    setLocationLoading(true);
-    setLocationError('');
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        try {
-          const res = await fetchWithTimeout(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
-            { headers: { 'Accept-Language': 'en' } }
-          );
-          const data = await res.json();
-          const readableAddress = data.display_name || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-          setAddressInput(readableAddress);
-          dispatch(setDeliveryAddress({ address: readableAddress, coords: { lat: latitude, lng: longitude } }));
-        } catch {
-          const fallback = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-          setAddressInput(fallback);
-          dispatch(setDeliveryAddress({ address: fallback, coords: { lat: latitude, lng: longitude } }));
-        } finally {
-          setLocationLoading(false);
-        }
-      },
-      (err) => {
-        setLocationLoading(false);
-        if (err.code === 1) setLocationError('Permission denied. Please allow location access.');
-        else setLocationError('Unable to detect location. Enter manually.');
-      },
-      { timeout: 10000 }
-    );
+  const handleLocationChange = (loc) => {
+    setAddressInput(loc.address);
+    dispatch(setDeliveryAddress({ address: loc.address, coords: { lat: loc.lat, lng: loc.lng } }));
   };
 
   return (
@@ -222,54 +163,10 @@ export default function CartDrawer({ open, onClose }) {
                   transition={{ duration: 0.2 }}
                   className="px-5 pb-2 overflow-hidden"
                 >
-                  <div className="bg-[#16100D] rounded-xl border border-white/5 p-3 space-y-2">
-                    <p className="text-xs font-bold text-[#A39791] uppercase tracking-wider flex items-center gap-1.5">
-                      <MapPin size={12} className="text-[#F07D14]" /> Delivery Address
-                    </p>
-                    <p className="text-[10px] text-[#A39791]">Address aur GPS location dono required hain — search se select karein ya "My Location" use karein</p>
-                    <div className="flex gap-2">
-<div className="relative flex-1">
-                         <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8E827B]" />
-                         <input
-                           value={addressInput}
-                           onChange={(e) => { setAddressInput(e.target.value); searchAddress(e.target.value); }}
-                           onFocus={() => setShowResults(true)}
-                           onBlur={() => setTimeout(() => setShowResults(false), 200)}
-                           placeholder="Enter delivery address"
-                           className="w-full pl-8 pr-3 py-2 rounded-lg border border-white/10 text-sm bg-[#0A0604] text-white focus:outline-none focus:border-[#F07D14] placeholder:text-[#8E827B]"
-                         />
-                       </div>
-                       <button
-                         onClick={handleUseCurrentLocation}
-                         disabled={locationLoading}
-                         title="Use Current Location"
-                         className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#F07D14]/40 bg-[#F07D14]/10 text-[#F07D14] text-xs font-bold hover:bg-[#F07D14]/20 transition-colors disabled:opacity-60 whitespace-nowrap"
-                       >
-                         {locationLoading ? <Loader2 size={14} className="animate-spin" /> : <Navigation size={14} />}
-                         {locationLoading ? 'Locating…' : 'My Location'}
-                       </button>
-                     </div>
-                     {locationError && <p className="text-xs text-red-400 font-semibold">{locationError}</p>}
-                     {/* Search results dropdown */}
-                     {showResults && addressSearchResults.length > 0 && (
-                       <div className="absolute z-10 mt-1 w-full max-w-[calc(100%-48px)] bg-[#16100D] border border-white/10 rounded-lg max-h-40 overflow-y-auto">
-                         {addressSearchResults.map((result, i) => (
-                           <button
-                             key={i}
-                             onClick={() => selectSearchResult(result)}
-                             className="w-full text-left px-3 py-2 text-xs text-white hover:bg-white/5 border-b border-white/5 last:border-0"
-                           >
-                             {result.display_name}
-                           </button>
-                         ))}
-                       </div>
-                     )}
-                     {cart.deliveryCoords && (
-                       <p className="text-xs text-green-400 font-semibold">
-                         ✅ Location pinned ({cart.deliveryCoords.lat.toFixed(4)}, {cart.deliveryCoords.lng.toFixed(4)})
-                       </p>
-                     )}
-                  </div>
+                  <LocationPicker
+                    initialAddress={addressInput}
+                    onLocationChange={handleLocationChange}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>

@@ -49,10 +49,6 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function openMaps(lat, lng) {
-  window.open(`https://maps.google.com/?q=${lat},${lng}`, '_blank');
-}
-
 export default function DeliveryDashboard() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -78,10 +74,11 @@ export default function DeliveryDashboard() {
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
    const [driverPath, setDriverPath] = useState([]); // Step 16: track driver route path
-   const [routeGeometry, setRouteGeometry] = useState([]); // Step 8: ORS route polyline
-   const [routeLoading, setRouteLoading] = useState(false);
+    const [routeGeometry, setRouteGeometry] = useState([]); // Step 8: ORS route polyline
+    const [routeLoading, setRouteLoading] = useState(false);
+    const [restaurantLocation, setRestaurantLocation] = useState(null); // Restaurant coordinates for map
 
-  // Reject modal state
+    // Reject modal state
   const [rejectModal, setRejectModal] = useState(null); // orderId
   const [rejectReason, setRejectReason] = useState('');
   const [rejectingId, setRejectingId] = useState(null);
@@ -138,6 +135,20 @@ const fetchOrders = useCallback(async (silent = false) => {
         const res = await fetchWithTimeout('/api/delivery/notifications', { credentials: 'include' });
         const data = await safeJson(res);
         if (data.ok) setUnreadNotifCount(data.unreadCount);
+      } catch {}
+    })();
+    // Fetch restaurant location from settings
+    (async () => {
+      try {
+        const res = await fetchWithTimeout('/api/settings', { credentials: 'include' });
+        const data = await safeJson(res);
+        if (data.ok && data.settings?.restaurantLocation?.lat) {
+          setRestaurantLocation({
+            lat: data.settings.restaurantLocation.lat,
+            lng: data.settings.restaurantLocation.lng,
+            address: data.settings.address || 'Restaurant',
+          });
+        }
       } catch {}
     })();
   }, []);
@@ -560,27 +571,38 @@ const fetchOrders = useCallback(async (silent = false) => {
                   </div>
                 )}
 
-{/* Open in Maps */}
-                 {activeOrder.customerLocation?.lat && (
-                   <button
-                     onClick={() => openMaps(activeOrder.customerLocation.lat, activeOrder.customerLocation.lng)}
-                     className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#F07D14] to-[#E86C1B] text-white font-bold rounded-2xl py-4 hover:shadow-lg hover:shadow-[#F07D14]/30 transition-all"
-                   >
-                     <Navigation size={18} />
-                     Open in Google Maps
-                   </button>
-                 )}
-
-                  {/* Live Map Tracking */}
-                  {activeOrder.status === 'out_for_delivery' && (
-                    <LiveTrackingMap
-                      customerLocation={activeOrder.customerLocation}
-                      driverLocation={activeOrder.deliveryBoyLocation || { lat: driverPath[driverPath.length - 1]?.lat, lng: driverPath[driverPath.length - 1]?.lng }}
-                      driverPath={driverPath}
-                      routeGeometry={routeGeometry}
-                      height={180}
-                    />
-                  )}
+{/* Live Map Tracking */}
+                    {activeOrder.status === 'out_for_delivery' && (
+                      <LiveTrackingMap
+                        customerLocation={activeOrder.customerLocation}
+                        driverLocation={activeOrder.deliveryBoyLocation || { lat: driverPath[driverPath.length - 1]?.lat, lng: driverPath[driverPath.length - 1]?.lng }}
+                        restaurantLocation={restaurantLocation}
+                        driverPath={driverPath}
+                        routeGeometry={routeGeometry}
+                        height={180}
+                        viewMode="delivery"
+                        onMarkDestination={(dest) => {
+                         const start = { lat: driverPath[driverPath.length - 1]?.lat, lng: driverPath[driverPath.length - 1]?.lng };
+                         if (dest?.lat && dest?.lng && start?.lat && start?.lng) {
+                           fetchRoute(start, dest);
+                         }
+                       }}
+                       onUseMyLocation={() => {
+                         if (navigator.geolocation) {
+                           navigator.geolocation.getCurrentPosition((pos) => {
+                             const myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                             if (activeOrder?.customerLocation?.lat) {
+                               fetchRoute(myPos, {
+                                 lat: activeOrder.customerLocation.lat,
+                                 lng: activeOrder.customerLocation.lng,
+                                 address: activeOrder.customerLocation.address
+                               });
+                             }
+                           });
+                         }
+                       }}
+                     />
+                   )}
 
                 {/* Order Items */}
                 <div className="bg-[#16100D]/60 rounded-2xl px-4 py-3 space-y-2 border border-white/5">
@@ -689,36 +711,36 @@ const fetchOrders = useCallback(async (silent = false) => {
         </AnimatePresence>
 
         {/* ── TAB SWITCHER ── */}
-        <div className="bg-gradient-to-r from-[#1A1310] to-[#16100D] rounded-2xl p-1.5 border border-white/10 shadow-xl">
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              onClick={() => setActiveTab('active')}
-              className={`py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-                activeTab === 'active'
-                  ? 'bg-gradient-to-r from-[#F07D14] to-[#E86C1B] text-white shadow-lg shadow-[#F07D14]/30'
-                  : 'text-[#8E827B] hover:text-white bg-white/5'
-              }`}
-            >
-              📦 <span>Assigned</span>
-              {pendingOrders.length > 0 && (
-                <span className="bg-[#F07D14] text-white text-xs font-black px-2 py-0.5 rounded-full">{pendingOrders.length}</span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('delivered')}
-              className={`py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-                activeTab === 'delivered'
-                  ? 'bg-gradient-to-r from-[#F07D14] to-[#E86C1B] text-white shadow-lg shadow-[#F07D14]/30'
-                  : 'text-[#8E827B] hover:text-white bg-white/5'
-              }`}
-            >
-              ✅ <span>Delivered</span>
-              {deliveredOrders.length > 0 && (
-                <span className="bg-[#F07D14] text-white text-xs font-black px-2 py-0.5 rounded-full">{deliveredOrders.length}</span>
-              )}
-            </button>
-          </div>
+      <div className="sticky top-[72px] z-10 -mx-4 px-4 py-2 bg-[#0A0604]/95 backdrop-blur-sm">
+        <div className="bg-gradient-to-r from-[#1A1310] to-[#16100D] rounded-2xl p-1.5 border border-white/10 shadow-xl grid grid-cols-2 gap-1.5 max-w-lg mx-auto">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'active'
+                ? 'bg-gradient-to-r from-[#F07D14] to-[#E86C1B] text-white shadow-lg shadow-[#F07D14]/30'
+                : 'text-[#8E827B] hover:text-white bg-white/5'
+            }`}
+          >
+            📦 <span>Assigned</span>
+            {pendingOrders.length > 0 && (
+              <span className="bg-[#F07D14] text-white text-xs font-black px-2 py-0.5 rounded-full">{pendingOrders.length}</span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('delivered')}
+            className={`py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'delivered'
+                ? 'bg-gradient-to-r from-[#F07D14] to-[#E86C1B] text-white shadow-lg shadow-[#F07D14]/30'
+                : 'text-[#8E827B] hover:text-white bg-white/5'
+            }`}
+          >
+            ✅ <span>Delivered</span>
+            {deliveredOrders.length > 0 && (
+              <span className="bg-[#F07D14] text-white text-xs font-black px-2 py-0.5 rounded-full">{deliveredOrders.length}</span>
+            )}
+          </button>
         </div>
+      </div>
 
         {/* ── ASSIGNED ORDERS SECTION ── */}
         {activeTab === 'active' && (<>
@@ -933,14 +955,10 @@ const fetchOrders = useCallback(async (silent = false) => {
                     </div>
                     <div className="flex items-center gap-3">
                       {order.customerLocation?.lat && (
-                        <a
-                          href={`https://maps.google.com/?q=${order.customerLocation.lat},${order.customerLocation.lng}`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 bg-gradient-to-r from-[#F07D14]/15 to-[#F07D14]/10 border border-[#F07D14]/20 rounded-xl px-3 py-2 hover:from-[#F07D14]/20 hover:to-[#F07D14]/15 transition-all"
-                        >
-                          <Navigation size={12} className="text-[#F07D14]" />
-                          <span className="text-[#F07D14] text-xs font-bold">Maps</span>
-                        </a>
+                        <span className="flex items-center gap-1 bg-[#F07D14]/10 rounded-xl px-3 py-2">
+                          <MapPin size={12} className="text-[#F07D14]" />
+                          <span className="text-[#F07D14] text-xs font-medium">{order.customerLocation.lat.toFixed(4)},{order.customerLocation.lng.toFixed(4)}</span>
+                        </span>
                       )}
                       {order.deliveryRating ? (
                         <div className="flex items-center gap-1.5 bg-yellow-500/15 border border-yellow-500/20 rounded-xl px-3 py-2">

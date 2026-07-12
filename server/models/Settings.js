@@ -10,6 +10,11 @@ const settingsSchema = new mongoose.Schema({
   deliveryCharge: { type: Number, default: 39 },
   minOrderAmount: { type: Number, default: 149 },
   isOpen:         { type: Boolean, default: true },
+  // Restaurant location coordinates for delivery tracking
+  restaurantLocation: {
+    lat: { type: Number, default: 23.1828 },
+    lng: { type: Number, default: 79.9501 },
+  },
   updatedAt:      { type: Date, default: Date.now },
 });
 

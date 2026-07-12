@@ -240,14 +240,10 @@ export default function DeliveryEarnings() {
                         </div>
                       )}
                       {order.customerLocation?.lat && (
-                        <a
-                          href={`https://maps.google.com/?q=${order.customerLocation.lat},${order.customerLocation.lng}`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1 bg-[#16100D] rounded-lg px-2 py-1 hover:bg-[#1E1511] transition-colors"
-                        >
-                          <Navigation size={10} className="text-[#F07D14]" />
-                          <span className="text-[#F07D14] text-[11px] font-medium">Map</span>
-                        </a>
+                        <span className="flex items-center gap-1 bg-[#16100D] rounded-lg px-2 py-1">
+                          <MapPin size={10} className="text-[#F07D14]" />
+                          <span className="text-[#F07D14] text-[11px] font-medium">{order.customerLocation.lat.toFixed(4)}, {order.customerLocation.lng.toFixed(4)}</span>
+                        </span>
                       )}
                       {order.deliveryRating && (
                         <div className="flex items-center gap-1 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-2 py-1">

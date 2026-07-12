@@ -148,12 +148,11 @@ export default function OrderDetailPage() {
                driverLocation={order.deliveryBoyLocation}
                height={200}
              />
-             {loc && (
-               <a href={`https://maps.google.com/?q=${loc.lat},${loc.lng}`} target="_blank" rel="noopener noreferrer"
-                 className="w-full flex items-center justify-center gap-2 bg-[#F07D14]/15 border border-[#F07D14]/30 rounded-xl py-2.5 text-[#F07D14] text-sm font-bold hover:bg-[#F07D14]/25 transition-colors mt-2">
-                 <MapPin size={14} /> Open in Google Maps <ExternalLink size={12} />
-               </a>
-             )}
+              {loc && (
+                <p className="text-[#8E827B] text-xs text-center mt-2">
+                  🛵 Driver location: {loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}
+                </p>
+              )}
            </div>
          )}
 

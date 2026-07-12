@@ -34,10 +34,6 @@ const NEXT_ACTION = {
   picked_up:          { nextStatus: 'out_for_delivery',   label: 'Out for Delivery',     icon: Truck,        color: 'text-orange-400', bg: 'bg-orange-500/20', border: 'border-orange-500/30', hoverBg: 'hover:bg-orange-500/30' },
 };
 
-function openMaps(lat, lng) {
-  window.open(`https://maps.google.com/?q=${lat},${lng}`, '_blank');
-}
-
 export default function DeliveryOrderDetail() {
   const { orderId } = useParams();
   const navigate = useNavigate();
@@ -272,15 +268,11 @@ export default function DeliveryOrderDetail() {
             </div>
           )}
 
-          {/* Open in Google Maps */}
           {order.customerLocation?.lat ? (
-            <button
-              onClick={() => openMaps(order.customerLocation.lat, order.customerLocation.lng)}
-              className="w-full flex items-center justify-center gap-2 bg-[#F07D14] text-white text-sm font-bold rounded-xl py-3 hover:bg-[#E86C1B] transition-colors"
-            >
-              <Navigation size={16} />
-              Open in Google Maps
-            </button>
+            <div className="flex items-center gap-2 bg-[#16100D] rounded-xl px-4 py-3 text-[#8E827B] text-xs">
+              <MapPin size={14} className="text-[#F07D14]" />
+              Lat: {order.customerLocation.lat.toFixed(5)}, Lng: {order.customerLocation.lng.toFixed(5)}
+            </div>
           ) : (
             <p className="text-[#8E827B] text-xs text-center">Customer ka GPS location available nahi hai</p>
           )}
@@ -289,12 +281,20 @@ export default function DeliveryOrderDetail() {
         {/* Live Tracking Map - Step 18: Show route when out for delivery */}
         {order.status === 'out_for_delivery' && order.customerLocation?.lat && order.customerLocation?.lng && (
           <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-4 space-y-3">
-            <p className="text-[#8E827B] text-[10px] font-bold uppercase tracking-wide">Live Location</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[#8E827B] text-[10px] font-bold uppercase tracking-wide">Live Location</p>
+              {liveTracking && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 flex items-center gap-1">
+                  <Radio size={10} className="animate-pulse" /> LIVE
+                </span>
+              )}
+            </div>
             <LiveTrackingMap
               customerLocation={order.customerLocation}
               driverLocation={order.deliveryBoyLocation}
               height={180}
-              showControls={false}
+              showControls={true}
+              viewMode="delivery"
             />
             <p className="text-center text-green-400 text-xs font-semibold">
               🛵 Driver is on the way — distance updates in real-time

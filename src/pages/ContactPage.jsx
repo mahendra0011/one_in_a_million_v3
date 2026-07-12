@@ -13,7 +13,7 @@ const locations = [
     city: 'Jabalpur, Madhya Pradesh - 482001',
     phone: '9967412613',
     hours: '11:00 AM - 11:00 PM',
-    map: 'https://maps.google.com',
+    map: 'Mall Road, Civil Lines, Jabalpur',
   },
   {
     name: 'Wright Town',
@@ -21,7 +21,7 @@ const locations = [
     city: 'Jabalpur, Madhya Pradesh - 482002',
     phone: '9202291661',
     hours: '11:00 AM - 11:00 PM',
-    map: 'https://maps.google.com',
+    map: 'Wright Town, Jabalpur',
   },
 ];
 

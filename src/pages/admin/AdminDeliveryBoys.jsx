@@ -157,14 +157,9 @@ export default function AdminDeliveryBoys() {
                     </td>
                     <td className="px-6 py-4">
                       {boy.currentLocation?.lat ? (
-                        <a
-                          href={`https://maps.google.com/?q=${boy.currentLocation.lat},${boy.currentLocation.lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-medium hover:underline"
-                        >
-                          <MapPin size={12} /> View Map
-                        </a>
+                        <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                          <MapPin size={12} /> {boy.currentLocation.lat.toFixed(4)}, {boy.currentLocation.lng.toFixed(4)}
+                        </span>
                       ) : (
                         <span className="text-xs text-gray-400">—</span>
                       )}

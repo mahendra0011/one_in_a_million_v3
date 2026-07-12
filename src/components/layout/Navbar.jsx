@@ -132,11 +132,11 @@ export default function Navbar({ cartCount = 0, onOpenCart }) {
                 const role = user?.role;
                 if (role === 'admin') navigate('/admin');
                 else if (role === 'delivery_boy') navigate('/delivery');
-                else navigate('/account');
-              }}
-              className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-[#A39791] hover:text-[#F07D14] hover:bg-[#16100D] transition-colors"
-              title="My Account"
-            >
+else navigate('/account');
+                               }}
+                               className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-[#A39791] hover:text-[#F07D14] hover:bg-[#16100D] transition-colors"
+                               title="My Account"
+                             >
               <User size={18} />
               <span>{user?.name?.split(' ')[0] || 'Account'}</span>
             </button>
