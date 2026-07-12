@@ -121,6 +121,7 @@ export default defineConfig({
           'vendor-framer': ['framer-motion'],
           'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
           'vendor-gsap': ['gsap', '@gsap/react'],
+          'vendor-query': ['@tanstack/react-query'],
         },
       },
     },
