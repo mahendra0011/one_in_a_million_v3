@@ -13,7 +13,7 @@ import mongoose from 'mongoose';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { createClient } from 'redis';
-import createAdapter from '@socket.io/redis-adapter';
+import { createAdapter } from '@socket.io/redis-adapter';
 import {
   generateOtp,
   hashOtp,
@@ -24,6 +24,7 @@ import {
 } from './services/otp.service.js';
 import { sendOrderConfirmation, sendStatusNotification, sendReviewReminder, sendReservationConfirmation } from './services/notification.service.js';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import {
   User, Order, OtpSession, MenuItem, Reservation, Coupon,
   Review, Cart, Notification, AdminNotifLog,

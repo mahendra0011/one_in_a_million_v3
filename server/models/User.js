@@ -39,7 +39,6 @@ userSchema.methods.comparePassword = function (plain) {
 };
 
 userSchema.index({ role: 1 });
-userSchema.index({ email: 1 });
 userSchema.index({ phone: 1 });
 
 const User = mongoose.model('User', userSchema);

@@ -61,23 +61,11 @@ export default defineConfig({
         lang: 'en',
         categories: ['food', 'shopping'],
         icons: [
-          {
-            src: '/pwa-192x192.svg',
-            sizes: '192x192',
-            type: 'image/svg+xml',
-            purpose: 'any',
-          },
-          {
-            src: '/pwa-512x512.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable',
-          },
+          { src: '/pwa-192x192.svg', sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
+          { src: '/pwa-512x512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
         ],
       },
-      devOptions: {
-        enabled: false,
-      },
+      devOptions: { enabled: false },
     }),
   ],
 
@@ -87,11 +75,14 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
+        // ECONNREFUSED silently ignore karo — server baad mein start ho sakta hai
         configure: (proxy) => {
           proxy.on('error', (err, _req, res) => {
-            if (err.code !== 'ECONNREFUSED' && res && typeof res.writeHead === 'function' && !res.headersSent) {
+            // ECONNREFUSED = server abhi start nahi hua, ignore karo
+            if (err.code === 'ECONNREFUSED') return;
+            if (res && typeof res.writeHead === 'function' && !res.headersSent) {
               res.writeHead(502, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'Proxy error', details: err.message }));
+              res.end(JSON.stringify({ ok: false, error: 'Backend server not reachable' }));
             }
           });
         },
@@ -101,11 +92,8 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
         configure: (proxy) => {
-          proxy.on('error', (err) => {
-            if (err.code !== 'ECONNREFUSED') {
-              console.warn('[vite proxy] socket.io proxy error:', err.message);
-            }
-          });
+          // ws ECONNREFUSED bhi silently ignore
+          proxy.on('error', () => {});
         },
       },
     },
@@ -116,12 +104,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-redux': ['@reduxjs/toolkit', 'react-redux'],
+          'vendor-react':  ['react', 'react-dom', 'react-router-dom'],
+          'vendor-redux':  ['@reduxjs/toolkit', 'react-redux'],
           'vendor-framer': ['framer-motion'],
-          'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
-          'vendor-gsap': ['gsap', '@gsap/react'],
-          'vendor-query': ['@tanstack/react-query'],
+          'vendor-three':  ['three', '@react-three/fiber', '@react-three/drei'],
+          'vendor-gsap':   ['gsap', '@gsap/react'],
+          'vendor-query':  ['@tanstack/react-query'],
         },
       },
     },
