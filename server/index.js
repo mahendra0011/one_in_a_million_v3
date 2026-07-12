@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { randomUUID } from 'crypto';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '.env') });
@@ -14,6 +15,8 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { createClient } from 'redis';
 import { createAdapter } from '@socket.io/redis-adapter';
+import mongoSanitize from 'express-mongo-sanitize';
+import csrf from 'csurf';
 import {
   generateOtp,
   hashOtp,
@@ -28,10 +31,10 @@ import bcrypt from 'bcryptjs';
 import {
   User, Order, OtpSession, MenuItem, Reservation, Coupon,
   Review, Cart, Notification, AdminNotifLog,
-  DeliveryNotif, DeliveryPushSub, DeliveryRating
+  DeliveryNotif, DeliveryPushSub, DeliveryRating, SecurityLog
 } from './models/index.js';
 import Settings, { getSettings } from './models/Settings.js';
-import { authenticate, adminOnly, deliveryOnly, optionalAuth, setAuthCookie, clearAuthCookie, getToken } from './middleware/auth.js';
+import { authenticate, adminOnly, deliveryOnly, optionalAuth, setAuthCookie, clearAuthCookie, getToken, blacklistToken } from './middleware/auth.js';
 import fileUpload from 'express-fileupload';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
@@ -40,6 +43,7 @@ import { generalLimiter, authLimiter, otpLimiter, passwordLimiter, orderLimiter,
 import { validate } from './middleware/validate.js';
 import * as v from './middleware/validators.js';
 import { globalErrorHandler, logError } from './middleware/errorHandler.js';
+import { passwordStrength } from './middleware/validators.js';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -49,13 +53,98 @@ cloudinary.config({
 
 const app = express();
 
+// ─── SECURITY LOGGING HELPER ───────────────────────────────────────────────────
+const logSecurityEvent = async (type, { userId, email, details } = {}) => {
+  try {
+    await SecurityLog.create({ type, userId, email, ip: null, details });
+  } catch { /* silent fail */ }
+};
+
+// ─── ENVIRONMENT VALIDATION ───────────────────────────────────────────────────
+const requiredEnvVars = ['JWT_SECRET', 'MONGO_URI', 'BREVO_API_KEY'];
+requiredEnvVars.forEach(key => {
+  if (!process.env[key]) {
+    console.error(`❌ Missing required env var: ${key}`);
+    process.exit(1);
+  }
+});
+
+// ─── SECURITY HEADERS ────────────────────────────────────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://apis.google.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+      imgSrc: ["'self'", "data:", "https:", "https://res.cloudinary.com"],
+      connectSrc: ["'self'", process.env.CLIENT_URL || "http://localhost:5173"],
+      fontSrc: ["'self'", "https:", "data:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
+    },
+  },
+  hsts: { maxAge: 31536000, includeSubDomains: true },
 }));
+app.use(helmet.referrerPolicy({ policy: 'strict-origin-when-cross-origin' }));
+app.use(helmet.noSniff());
+app.use(helmet.dnsPrefetchControl({ allow: false }));
+app.use(helmet.hidePoweredBy());
 
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
-app.use(express.json({ strict: true }));
+// ─── MONGO SANITIZATION ────────────────────────────────────────────────────────
+app.use(mongoSanitize());
+
+// ─── INPUT SIZE LIMITING ────────────────────────────────────────────────────────
+app.use(express.json({ limit: '1mb', strict: true }));
+app.use((req, res, next) => {
+  if (req.url.length > 2048) {
+    return res.status(414).json({ ok: false, error: 'URL too long' });
+  }
+  next();
+});
+
+// ─── API REQUEST ID ──────────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  req.id = randomUUID();
+  res.setHeader('X-Request-ID', req.id);
+  next();
+});
+
+// ─── CORS CONFIGURATION ───────────────────────────────────────────────────────────
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [process.env.CLIENT_URL || 'http://localhost:5173'];
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
 app.use(cookieParser());
+
+// ─── CSRF PROTECTION ───────────────────────────────────────────────────────────
+const csrfProtection = csrf({ cookie: true });
+
+// Apply CSRF protection only in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(csrfProtection);
+} else {
+  // In dev, just pass through but still generate token
+  app.use((req, res, next) => {
+    req.csrfToken = () => 'dev-token';
+    next();
+  });
+}
+
+// Make CSRF token available to views
+app.use((req, res, next) => {
+  res.locals.csrfToken = req.csrfToken ? req.csrfToken() : null;
+  next();
+});
+
 app.use(fileUpload({
   useTempFiles: true,
   tempFileDir: '/tmp/',
@@ -69,10 +158,9 @@ app.use('/api', generalLimiter);
 const server = createServer(app);
 const io = new Server(server, { cors: { origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true } });
 
-// Redis adapter setup for Socket.io (Step 10)
-const REDIS_URL = process.env.REDIS_URL;
-if (REDIS_URL) {
-  const pubClient = createClient({ url: REDIS_URL });
+// ─── REDIS ADAPTER FOR SOCKET.IO ───────────────────────────────────────────────
+if (process.env.REDIS_URL) {
+  const pubClient = createClient({ url: process.env.REDIS_URL });
   const subClient = pubClient.duplicate();
   pubClient.on('error', () => {});
   subClient.on('error', () => {});
@@ -249,7 +337,7 @@ app.post('/api/auth/register-email/verify', authLimiter, async (req, res) => {
     if (!email || !otp || !regToken || !password || !phone) {
       return res.status(400).json({ ok: false, error: 'Email, OTP, regToken, password and phone required' });
     }
-    if (password.length < 6) return res.status(400).json({ ok: false, error: 'Password must be at least 6 characters' });
+    if (!passwordStrength(password)) return res.status(400).json({ ok: false, error: 'Password must be 8+ chars with uppercase, lowercase, number and special character' });
 
     const session = await OtpSession.findOne({ identifier: email, purpose: 'register' });
     if (!session) return res.status(400).json({ ok: false, error: 'OTP not found. Please request again.' });
@@ -287,8 +375,18 @@ setAuthCookie(res, token, 'bim_token', 7 * 24 * 60 * 60 * 1000);
 } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
-// ─── LOGOUT ───────────────────────────────────────────────────────────────────
-app.post('/api/auth/logout', (req, res) => {
+// ─── LOGOUT with Token Blacklisting ───────────────────────────────────────────────
+app.post('/api/auth/logout', async (req, res) => {
+  const tokens = [getToken(req, 'bim_token'), getToken(req, 'bim_admin_token'), getToken(req, 'bim_delivery_token')].filter(Boolean);
+  for (const token of tokens) {
+    try {
+      const decoded = jwt.decode(token);
+      if (decoded?.exp) {
+        const ttl = decoded.exp - Math.floor(Date.now() / 1000);
+        await blacklistToken(token, ttl);
+      }
+    } catch {}
+  }
   clearAuthCookie(res, 'bim_token');
   clearAuthCookie(res, 'bim_admin_token');
   clearAuthCookie(res, 'bim_delivery_token');
@@ -361,7 +459,7 @@ app.post('/api/auth/change-password/send-otp', authenticate, otpLimiter, async (
 app.post('/api/auth/change-password/verify', authenticate, authLimiter, async (req, res) => {
   try {
     const { otp, newPassword } = req.body;
-    if (!otp || !newPassword || newPassword.length < 6) return res.status(400).json({ ok: false, error: 'OTP and new password (min 6 chars) required' });
+    if (!otp || !newPassword || !passwordStrength(newPassword)) return res.status(400).json({ ok: false, error: 'OTP and new password (8+ chars with uppercase, lowercase, number and special char) required' });
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ ok: false, error: 'User not found' });
     const session = await OtpSession.findOne({ identifier: user.email, purpose: 'reset' });
@@ -369,10 +467,16 @@ app.post('/api/auth/change-password/verify', authenticate, authLimiter, async (r
     if (new Date() > session.expiresAt) return res.status(400).json({ ok: false, error: 'OTP expired' });
     if (session.attempts >= 5) return res.status(429).json({ ok: false, error: 'Too many attempts' });
     const valid = await verifyOtp(otp, session.otpHash);
-    if (!valid) { session.attempts += 1; await session.save(); return res.status(400).json({ ok: false, error: 'Wrong OTP' }); }
+    if (!valid) {
+      session.attempts += 1;
+      await session.save();
+      await logSecurityEvent('otp_failure', { userId: req.user.id, email: user.email, details: { purpose: 'change_password' } });
+      return res.status(400).json({ ok: false, error: 'Wrong OTP' });
+    }
     await OtpSession.findByIdAndDelete(session._id);
     user.password = newPassword;
     await user.save();
+    await logSecurityEvent('password_change', { userId: req.user.id, email: user.email });
     res.json({ ok: true, message: 'Password changed successfully' });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
@@ -407,7 +511,12 @@ app.post('/api/auth/change-email/verify', authenticate, authLimiter, async (req,
     if (new Date() > session.expiresAt) return res.status(400).json({ ok: false, error: 'OTP expired' });
     if (session.attempts >= 5) return res.status(429).json({ ok: false, error: 'Too many attempts' });
     const valid = await verifyOtp(otp, session.otpHash);
-    if (!valid) { session.attempts += 1; await session.save(); return res.status(400).json({ ok: false, error: 'Wrong OTP' }); }
+    if (!valid) {
+      session.attempts += 1;
+      await session.save();
+      await logSecurityEvent('otp_failure', { userId: req.user.id, email, details: { purpose: 'change_email' } });
+      return res.status(400).json({ ok: false, error: 'Wrong OTP' });
+    }
     await OtpSession.findByIdAndDelete(session._id);
     const user = await User.findByIdAndUpdate(req.user.id, { email, isEmailVerified: true }, { new: true }).select('-password');
     res.json({ ok: true, user, message: 'Email updated' });
@@ -483,18 +592,31 @@ app.post('/api/delivery/login', authLimiter, v.vDeliveryLogin, validate, async (
     const user = await User.findOne({ phone, role: 'delivery_boy' });
     if (!user) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
     if (!user.isActive) return res.status(403).json({ ok: false, error: 'Account deactivated' });
+    
+    // Check account lockout
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      return res.status(429).json({ ok: false, error: 'Account temporarily locked. Try again later.' });
+    }
+    
     const valid = await user.comparePassword(password);
-    if (!valid) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    if (!valid) {
+      await user.incLoginAttempts();
+      await logSecurityEvent('failed_login', { userId: user._id, email: user.email, details: { reason: 'invalid_password', role: 'delivery_boy' } });
+      return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    }
+    
+    await user.resetLoginAttempts();
+    await logSecurityEvent('login_success', { userId: user._id, email: user.email, details: { role: 'delivery_boy' } });
+    
     const token = jwt.sign({ id: user._id, phone: user.phone, role: 'delivery_boy' }, JWT_SECRET, { expiresIn: '7d' });
     setAuthCookie(res, token, 'bim_delivery_token', 7 * 24 * 60 * 60 * 1000);
     res.json({ ok: true, user: { id: user._id, name: user.name, phone: user.phone, role: 'delivery_boy', isOnline: user.isOnline, mustSetPassword: user.mustSetPassword } });
-} catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
 app.post('/api/delivery/set-password', deliveryOnly, passwordLimiter, v.vDeliverySetPassword, validate, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (!newPassword || newPassword.length < 6) return res.status(400).json({ ok: false, error: 'New password must be at least 6 characters' });
     const user = await User.findById(req.user.id);
     if (!user || user.role !== 'delivery_boy') return res.status(404).json({ ok: false, error: 'Delivery boy not found' });
     if (!user.mustSetPassword) {
@@ -723,13 +845,14 @@ app.patch('/api/delivery/profile', deliveryOnly, async (req, res) => {
 app.patch('/api/delivery/change-password', deliveryOnly, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword || newPassword.length < 6) return res.status(400).json({ ok: false, error: 'Current aur nayi password chahiye (min 6 chars)' });
+    if (!currentPassword || !newPassword || !passwordStrength(newPassword)) return res.status(400).json({ ok: false, error: 'Current aur nayi password chahiye (8+ chars with uppercase, lowercase, number and special char)' });
     const user = await User.findById(req.user.id);
     const ok = await user.comparePassword(currentPassword);
     if (!ok) return res.status(401).json({ ok: false, error: 'Current password galat hai' });
     user.password = newPassword;
     user.mustSetPassword = false;
     await user.save();
+    logSecurityEvent('password_change', { userId: user._id, email: user.email });
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
@@ -1451,6 +1574,21 @@ app.post('/api/upload', authenticate, uploadLimiter, async (req, res) => {
 // ─── HEALTH ───────────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
+// ─── SECURITY STATUS ─────────────────────────────────────────────────────────────
+app.get('/api/security-status', (_req, res) => {
+  res.json({
+    ok: true,
+    security: 'ok',
+    headers: {
+      helmet: true,
+      cors: true,
+      rateLimiting: true,
+      inputValidation: true,
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // ─── SITEMAP ───────────────────────────────────────────────────────────────────
 app.get('/sitemap.xml', async (_req, res) => {
   const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -1577,8 +1715,22 @@ app.post('/api/auth/login/unified/send-otp', authLimiter, v.vUnifiedLoginSendOtp
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
     if (!user.isActive) return res.status(403).json({ ok: false, error: 'Account deactivated' });
+    
+    // Check account lockout
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      return res.status(429).json({ ok: false, error: 'Account temporarily locked. Try again later.' });
+    }
+    
     const valid = await user.comparePassword(password);
-    if (!valid) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    if (!valid) {
+      await user.incLoginAttempts();
+      await logSecurityEvent('failed_login', { userId: user._id, email: user.email, details: { reason: 'invalid_password' } });
+      return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    }
+    
+    // Reset login attempts on successful login
+    await user.resetLoginAttempts();
+    await logSecurityEvent('login_success', { userId: user._id, email: user.email });
     
     // Skip OTP for already verified users
     if (user.isEmailVerified) {
@@ -1800,6 +1952,11 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     setAuthCookie(res, token, cookieName, 7 * 24 * 60 * 60 * 1000);
     res.json({ ok: true, user: { id: user._id, name: user.name, email: user.email, phone: user.phone, role: user.role, loyaltyPoints: user.loyaltyPoints } });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+});
+
+// ─── CSRF TOKEN ENDPOINT ─────────────────────────────────────────────────────
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ ok: true, csrfToken: req.csrfToken ? req.csrfToken() : null });
 });
 
 // ─── 404 HANDLER ─────────────────────────────────────────────────────────────

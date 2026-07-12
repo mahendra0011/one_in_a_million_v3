@@ -48,6 +48,9 @@ function handleRateLimitError(err) {
 
 export function globalErrorHandler(err, req, res, next) {
   logError(err, req);
+  if (err?.code === 'EBADCSRFTOKEN') {
+    return res.status(403).json({ ok: false, error: 'CSRF token invalid or expired. Refresh the page and try again.' });
+  }
   if (err?.code === 'LIMIT_FILE_SIZE' || err?.message?.toLowerCase().includes('file size limit') || err?.message?.toLowerCase().includes('maxfilesize') || err?.message?.toLowerCase().includes('too large')) {
     return res.status(413).json({ ok: false, error: 'File is too large. Maximum allowed size is 5 MB.' });
   }

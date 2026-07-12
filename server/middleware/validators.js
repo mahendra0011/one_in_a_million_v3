@@ -17,10 +17,17 @@ export const vRegisterSendEmailOtp = [
   body('name').optional().trim().isLength({ max: 80 }),
 ];
 
+const passwordStrength = (value) => {
+  if (!value) return false;
+  return value.length >= 8 && /[A-Z]/.test(value) && /[a-z]/.test(value) && /\d/.test(value) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value);
+};
+
+export { passwordStrength };
+
 export const vLegacyRegister = [
   body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 80 }),
   body('email').trim().notEmpty().withMessage('Email is required').isEmail().withMessage('Enter a valid email').normalizeEmail(),
-  body('password').notEmpty().withMessage('Password is required').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('password').notEmpty().withMessage('Password is required').custom(passwordStrength).withMessage('Password must be 8+ chars with uppercase, lowercase, number and special character'),
   body('phone').optional({ checkFalsy: true }).trim(),
 ];
 
@@ -41,7 +48,7 @@ export const vVerifyResetOtp = [
 
 export const vResetPassword = [
   body('resetToken').notEmpty().withMessage('resetToken is required'),
-  body('newPassword').notEmpty().withMessage('New password is required').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('newPassword').notEmpty().withMessage('New password is required').custom(passwordStrength).withMessage('Password must be 8+ chars with uppercase, lowercase, number and special character'),
 ];
 
 // ─── UNIFIED LOGIN ───────────────────────────────────────────────────────────────
@@ -64,13 +71,13 @@ export const vDeliveryLogin = [
 
 export const vDeliverySetPassword = [
   body('currentPassword').optional({ checkFalsy: true }).isString(),
-  body('newPassword').notEmpty().withMessage('New password is required').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
+  body('newPassword').notEmpty().withMessage('New password is required').custom(passwordStrength).withMessage('New password must be 8+ chars with uppercase, lowercase, number and special character'),
 ];
 
 export const vAdminCreateDeliveryBoy = [
   body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 80 }),
   body('phone').trim().notEmpty().withMessage('Phone is required').matches(/^\+?[0-9]{7,15}$/).withMessage('Enter a valid phone number'),
-  body('password').notEmpty().withMessage('Password is required').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('password').notEmpty().withMessage('Password is required').custom(passwordStrength).withMessage('Password must be 8+ chars with uppercase, lowercase, number and special character'),
   body('email').optional({ checkFalsy: true }).isEmail().withMessage('Enter a valid email').normalizeEmail(),
   body('vehicleType').optional().trim().isLength({ max: 40 }),
   body('vehicleNumber').optional().trim().isLength({ max: 20 }),
@@ -336,7 +343,7 @@ export const vSetupAdmin = [
   body('secret').notEmpty().withMessage('secret is required'),
   body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 80 }),
   body('email').trim().notEmpty().withMessage('Email is required').isEmail().withMessage('Enter a valid email').normalizeEmail(),
-  body('password').notEmpty().withMessage('Password is required').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('password').notEmpty().withMessage('Password is required').custom(passwordStrength).withMessage('Password must be 8+ chars with uppercase, lowercase, number and special character'),
 ];
 
 // ─── ROUTING / MAP MATCHING ─────────────────────────────────────────────

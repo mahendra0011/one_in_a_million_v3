@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { hashPassword, comparePassword } from '../middleware/auth.js';
+import uniqueValidator from 'mongoose-unique-validator';
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -25,8 +26,12 @@ const userSchema = new mongoose.Schema({
   profilePhoto: { type: String, default: '' },
   unavailableDays: { type: [Number], default: [] },
   availabilityNote: { type: String, default: '' },
+  loginAttempts: { type: Number, default: 0 },
+  lockUntil: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
+
+userSchema.plugin(uniqueValidator, { message: '{PATH} already exists' });
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
@@ -36,6 +41,23 @@ userSchema.pre('save', async function (next) {
 
 userSchema.methods.comparePassword = function (plain) {
   return comparePassword(plain, this.password);
+};
+
+userSchema.methods.incLoginAttempts = async function () {
+  if (this.lockUntil && this.lockUntil > new Date()) {
+    throw new Error('Account locked');
+  }
+  this.loginAttempts += 1;
+  if (this.loginAttempts >= 5) {
+    this.lockUntil = new Date(Date.now() + 30 * 60 * 1000);
+  }
+  return this.save();
+};
+
+userSchema.methods.resetLoginAttempts = function () {
+  this.loginAttempts = 0;
+  this.lockUntil = null;
+  return this.save();
 };
 
 userSchema.index({ role: 1 });

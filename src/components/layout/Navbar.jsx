@@ -141,11 +141,11 @@ else navigate('/account');
               <span>{user?.name?.split(' ')[0] || 'Account'}</span>
             </button>
           ) : (
-            <Link
-              to="/account"
-              className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-[#A39791] hover:text-[#F07D14] hover:bg-[#16100D] transition-colors"
-              title="Login / Sign Up"
-            >
+<Link
+               to="/login"
+               className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-[#A39791] hover:text-[#F07D14] hover:bg-[#16100D] transition-colors"
+               title="Login / Sign Up"
+             >
               <User size={18} />
               <span>Login</span>
             </Link>
@@ -205,12 +205,13 @@ else navigate('/account');
                 );
               })}
               <div className="border-t border-white/5 pt-2 mt-2 flex flex-col gap-2">
-                <button onClick={() => {
-                  const role = user?.role;
-                  if (role === 'admin') navigate('/admin');
-                  else if (role === 'delivery_boy') navigate('/delivery');
-                  else navigate('/account');
-                }} className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#A39791] hover:bg-[#16100D]">
+<button onClick={() => {
+                   const role = user?.role;
+                   if (role === 'admin') navigate('/admin');
+                   else if (role === 'delivery_boy') navigate('/delivery');
+                   else if (isLoggedIn) navigate('/account');
+                   else navigate('/login');
+                 }} className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#A39791] hover:bg-[#16100D]">
                   <User size={16} /> My Account
                 </button>
                 <a href="tel:+919967412613" className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#F07D14] hover:bg-[#16100D]">

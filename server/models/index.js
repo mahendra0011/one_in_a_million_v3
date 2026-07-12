@@ -16,3 +16,4 @@ export { default as AdminNotifLog } from './AdminNotifLog.js';
 export { default as DeliveryNotif } from './DeliveryNotif.js';
 export { default as DeliveryPushSub } from './DeliveryPushSub.js';
 export { default as DeliveryRating } from './DeliveryRating.js';
+export { default as SecurityLog } from './SecurityLog.js';

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { loginSuccess, logout, updateUser } from '../store/slices/authSlice';
+import LiveTrackingMap from '../components/LiveTrackingMap';
 import {
   User, Clock, MapPin, LogOut, Eye, EyeOff,
   Mail, Lock, Phone, Package, ArrowLeft, CheckCircle2, RefreshCw,
@@ -412,7 +413,7 @@ function LoginEmailPasswordFlow() {
 
 // ─── AUTH SCREEN ──────────────────────────────────────────────────────────────
 function AuthScreen({ initialTab }) {
-  const [tab, setTab] = useState(initialTab || 'login');
+  const [tab, setTab] = useState(initialTab === 'register' ? 'register' : 'login');
 
   useEffect(() => {
     if (initialTab) setTab(initialTab);
@@ -466,12 +467,50 @@ function TrackDelivery({ order }) {
   const loc = order.deliveryBoyLocation;
   const hasLoc = loc?.lat && loc?.lng;
   const status = order.status;
+  const [routeGeometry, setRouteGeometry] = useState([]);
+  const [routeLoading, setRouteLoading] = useState(false);
+
+  const fetchRoute = useCallback(async () => {
+    if (!order.customerLocation?.lat || !order.deliveryBoyLocation?.lat) return;
+    setRouteLoading(true);
+    try {
+      const res = await fetchWithTimeout('/api/routes/directions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          start: { lat: order.deliveryBoyLocation.lat, lng: order.deliveryBoyLocation.lng },
+          end: { lat: order.customerLocation.lat, lng: order.customerLocation.lng }
+        })
+      });
+      const data = await res.json();
+      if (data.ok && data.route?.routes?.[0]?.geometry?.coordinates) {
+        setRouteGeometry(data.route.routes[0].geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] })));
+      }
+    } catch (err) {
+      console.error('Failed to fetch route:', err);
+    }
+    setRouteLoading(false);
+  }, [order.customerLocation, order.deliveryBoyLocation]);
+
+  useEffect(() => {
+    if (status === 'out_for_delivery') fetchRoute();
+  }, [status, fetchRoute]);
 
   if (status === 'delivered') return null;
 
   const updatedAt = hasLoc && loc.updatedAt
     ? new Date(loc.updatedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
     : null;
+
+  const center = order.customerLocation?.lat && order.deliveryBoyLocation?.lat
+    ? [
+        (order.customerLocation.lng + order.deliveryBoyLocation.lng) / 2,
+        (order.customerLocation.lat + order.deliveryBoyLocation.lat) / 2
+      ]
+    : order.customerLocation?.lat
+      ? [order.customerLocation.lng, order.customerLocation.lat]
+      : [78.5, 23.5];
 
   return (
     <div className="bg-[#1A1310] rounded-2xl border border-[#F07D14]/30 p-4 mb-4 space-y-3">
@@ -492,6 +531,22 @@ function TrackDelivery({ order }) {
       {/* Order ID */}
       <p className="text-[#8E827B] text-xs">Order {order.orderId || order._id?.slice(-8)}</p>
 
+      {/* Live Map */}
+      {order.customerLocation?.lat && order.deliveryBoyLocation?.lat ? (
+        <LiveTrackingMap
+          customerLocation={order.customerLocation}
+          driverLocation={order.deliveryBoyLocation}
+          routeGeometry={routeGeometry}
+          height={200}
+          showControls={true}
+          viewMode="user"
+        />
+      ) : (
+        <div className="h-[200px] bg-[#16100D] rounded-xl flex items-center justify-center">
+          <p className="text-[#8E827B] text-sm">Waiting for delivery boy's location...</p>
+        </div>
+      )}
+
       {/* Location info */}
       {hasLoc ? (
         <div className="bg-[#16100D] rounded-xl p-3 space-y-2">
@@ -510,10 +565,6 @@ function TrackDelivery({ order }) {
           <p className="text-[#A39791] text-xs">
             Lat: {loc.lat.toFixed(5)}, Lng: {loc.lng.toFixed(5)}
           </p>
-          <div className="flex items-center gap-2 text-[#8E827B] text-xs">
-            <MapPin size={12} />
-            {loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}
-          </div>
         </div>
       ) : (
         <div className="bg-[#16100D] rounded-xl p-3 flex items-center gap-2">

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import uniqueValidator from 'mongoose-unique-validator';
 
 const couponSchema = new mongoose.Schema({
   code: { type: String, required: true, unique: true, uppercase: true },
@@ -12,5 +13,7 @@ const couponSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   createdAt: { type: Date, default: Date.now },
 });
+
+couponSchema.plugin(uniqueValidator, { message: '{PATH} already exists' });
 
 export default mongoose.model('Coupon', couponSchema);

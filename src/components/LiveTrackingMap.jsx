@@ -1,7 +1,7 @@
 import { useRef, useEffect, useMemo, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { Map, MapMarker, MarkerContent, MarkerPopup, MapRoute, MapControls, useMap } from '../components/ui/map';
-import { MapPin, Navigation, LocateFixed, Crosshair, Plus, Minus, Maximize2, User } from 'lucide-react';
+import { MapPin, Navigation } from 'lucide-react';
 
 function calcDist(lat1, lng1, lat2, lng2) {
   const R = 6371e3;
@@ -39,8 +39,6 @@ function DriverMarker({ location, viewMode }) {
   useEffect(() => {
     if (!isLoaded || !map || !location?.lat) return;
     const el = document.createElement('div');
-    // viewMode='user' → customer dekhega → motorcycle 🛵
-    // viewMode='delivery' → delivery boy dekhega → person icon
     const showMotorcycle = viewMode === 'user';
     const bgColor = showMotorcycle ? '#F07D14' : '#3b82f6';
     const shadowRgb = showMotorcycle ? '240,125,20' : '59,130,246';
@@ -92,12 +90,12 @@ export default function LiveTrackingMap({
   height = 300,
   showRoute = true,
   showControls = true,
-  showBranding = true,
+  showLocate = false,
   viewMode = 'user',
   onMarkDestination,
-  onUseMyLocation,
 }) {
-  const [routeFetching, setRouteFetching] = useState(false);
+  const [myLocation, setMyLocation] = useState(null);
+  
   const distance = (customerLocation?.lat && driverLocation?.lat)
     ? calcDist(driverLocation.lat, driverLocation.lng, customerLocation.lat, customerLocation.lng)
     : null;
@@ -120,6 +118,12 @@ export default function LiveTrackingMap({
         avg(customerLocation.lat, driverLocation.lat),
       ];
     }
+    if (driverLocation?.lat && myLocation?.lat) {
+      return [avg(driverLocation.lng, myLocation.lng), avg(driverLocation.lat, myLocation.lat)];
+    }
+    if (customerLocation?.lat && myLocation?.lat) {
+      return [avg(customerLocation.lng, myLocation.lng), avg(customerLocation.lat, myLocation.lat)];
+    }
     if (customerLocation?.lat && restaurantLocation?.lat) {
       return [
         avg(customerLocation.lng, restaurantLocation.lng),
@@ -128,9 +132,29 @@ export default function LiveTrackingMap({
     }
     if (customerLocation?.lat) return [customerLocation.lng, customerLocation.lat];
     if (driverLocation?.lat) return [driverLocation.lng, driverLocation.lat];
+    if (myLocation?.lat) return [myLocation.lng, myLocation.lat];
     if (restaurantLocation?.lat) return [restaurantLocation.lng, restaurantLocation.lat];
     return [78.5, 23.5];
-  }, [customerLocation, driverLocation, restaurantLocation]);
+  }, [customerLocation, driverLocation, restaurantLocation, myLocation]);
+
+  // Get user's current location for user view
+  useEffect(() => {
+    if (viewMode !== 'user' || !navigator.geolocation) return;
+    
+    const getLocation = () => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 30000 }
+      );
+    };
+    
+    getLocation();
+    const interval = setInterval(getLocation, 45000);
+    return () => clearInterval(interval);
+  }, [viewMode]);
 
   return (
     <div style={{ height, position: 'relative' }} className="rounded-2xl overflow-hidden border border-white/10 bg-[#0A0604]">
@@ -140,21 +164,21 @@ export default function LiveTrackingMap({
         )}
 
         {showRoute && routeCoords.length >= 2 && (
-          <MapRoute coordinates={routeCoords} color="#000000" width={5} opacity={0.9} />
+          <MapRoute coordinates={routeCoords} color="#F07D14" width={5} opacity={0.9} />
         )}
 
         {driverPathCoords.length >= 2 && (
           <MapRoute
             id="driver-path"
             coordinates={driverPathCoords}
-            color="#000000"
+            color="#6b7280"
             width={3}
             opacity={0.5}
             dashArray={[3, 3]}
           />
         )}
 
-{restaurantLocation?.lat && (
+        {restaurantLocation?.lat && (
           <MapMarker longitude={restaurantLocation.lng} latitude={restaurantLocation.lat}>
             <MarkerContent>
               <div className="w-8 h-8 bg-blue-600 border-2 border-white rounded-lg flex items-center justify-center text-sm">
@@ -170,7 +194,7 @@ export default function LiveTrackingMap({
           </MapMarker>
         )}
 
-{customerLocation?.lat && (
+        {customerLocation?.lat && (
           <MapMarker longitude={customerLocation.lng} latitude={customerLocation.lat}>
             <MarkerContent>
               {viewMode === 'delivery' ? (
@@ -191,9 +215,26 @@ export default function LiveTrackingMap({
         )}
 
         {driverLocation?.lat && <DriverMarker location={driverLocation} viewMode={viewMode} />}
+        
+        {/* Current location marker - shows user's location when driver location is being tracked */}
+        {viewMode === 'user' && myLocation && !customerLocation && (
+          <MapMarker longitude={myLocation.lng} latitude={myLocation.lat}>
+            <MarkerContent>
+              <div className="w-10 h-10 bg-green-500 border-3 border-white rounded-full flex items-center justify-center shadow-xl shadow-green-500/40">
+                📍
+              </div>
+            </MarkerContent>
+            <MarkerPopup closeButton>
+              <p className="text-white font-bold text-sm">My Location</p>
+              <p className="text-[#A39791] text-xs mt-1">
+                {myLocation.lat.toFixed(5)}, {myLocation.lng.toFixed(5)}
+              </p>
+            </MarkerPopup>
+          </MapMarker>
+        )}
       </Map>
 
-      {/* Route icon - top-right menubar ke neeche */}
+      {/* Route icon - for manual route fetch */}
       {showControls && driverLocation?.lat && customerLocation?.lat && (
         <button
           onClick={() => onMarkDestination?.(customerLocation)}

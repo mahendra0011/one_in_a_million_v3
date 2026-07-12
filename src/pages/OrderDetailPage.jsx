@@ -1,9 +1,8 @@
 import SEOHead from '../components/SEOHead';
 import { fetchWithTimeout } from '../lib/utils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Package, Clock, MapPin, Navigation, Star, ChevronRight, Truck, Radio, ExternalLink, Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import LiveTrackingMap from '../components/LiveTrackingMap';
 
 const STATUS_STEPS = ['pending', 'confirmed', 'preparing', 'reached_restaurant', 'picked_up', 'out_for_delivery', 'delivered'];
@@ -24,6 +23,8 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [routeGeometry, setRouteGeometry] = useState([]);
+  const [routeLoading, setRouteLoading] = useState(false);
 
   useEffect(() => {
     if (!orderId) return;
@@ -37,6 +38,36 @@ export default function OrderDetailPage() {
       .catch(() => setError('Failed to load order'))
       .finally(() => setLoading(false));
   }, [orderId]);
+
+  const fetchRoute = useCallback(async () => {
+    if (!order?.deliveryBoyLocation?.lat || !order?.customerLocation?.lat) return;
+    setRouteLoading(true);
+    try {
+      const res = await fetchWithTimeout('/api/routes/directions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          start: { lat: order.deliveryBoyLocation.lat, lng: order.deliveryBoyLocation.lng },
+          end: { lat: order.customerLocation.lat, lng: order.customerLocation.lng }
+        })
+      });
+      const data = await res.json();
+      if (data.ok && data.route?.routes?.[0]?.geometry?.coordinates) {
+        setRouteGeometry(data.route.routes[0].geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] })));
+      }
+    } catch (err) {
+      console.error('Failed to fetch route:', err);
+    }
+    setRouteLoading(false);
+  }, [order?.deliveryBoyLocation, order?.customerLocation]);
+
+  // Fetch route when order is out_for_delivery
+  useEffect(() => {
+    if (order?.status === 'out_for_delivery') {
+      fetchRoute();
+    }
+  }, [order?.status, fetchRoute]);
 
   // Live status updates via socket
   useEffect(() => {
@@ -132,21 +163,24 @@ export default function OrderDetailPage() {
         </div>
 
 {/* Delivery Tracking with Live Map */}
-         {order.status === 'out_for_delivery' && (
-           <div className="bg-[#1A1310] rounded-2xl border border-[#F07D14]/30 p-4 mb-4">
-             <div className="flex items-center justify-between mb-3">
-               <div className="flex items-center gap-2">
-                 <Truck size={16} className="text-[#F07D14]" />
-                 <p className="text-white font-bold text-sm">Live Tracking</p>
-               </div>
-               <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 flex items-center gap-1.5">
-                 <Radio size={10} className="animate-pulse" /> Live
-               </span>
-             </div>
-<LiveTrackingMap
+          {order.status === 'out_for_delivery' && (
+            <div className="bg-[#1A1310] rounded-2xl border border-[#F07D14]/30 p-4 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Truck size={16} className="text-[#F07D14]" />
+                  <p className="text-white font-bold text-sm">Live Tracking</p>
+                </div>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 flex items-center gap-1.5">
+                  <Radio size={10} className="animate-pulse" /> Live
+                </span>
+              </div>
+              <LiveTrackingMap
                 customerLocation={order.customerLocation}
                 driverLocation={order.deliveryBoyLocation}
-                height={200}
+                routeGeometry={routeGeometry}
+                height={220}
+                showControls={true}
+                showLocate={true}
                 viewMode="user"
               />
               {loc && (
@@ -154,8 +188,8 @@ export default function OrderDetailPage() {
                   🛵 Driver location: {loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}
                 </p>
               )}
-           </div>
-         )}
+            </div>
+          )}
 
         {/* Items */}
         <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-6 mb-4">

@@ -26,7 +26,6 @@ const STATUS_STYLE = {
   delivered:          { bg: 'bg-green-500/20',  text: 'text-green-400',  label: 'Delivered' },
 };
 
-// Next action to show based on current status
 const NEXT_ACTION = {
   confirmed:          { nextStatus: 'reached_restaurant', label: 'Reached Restaurant',   icon: Bike,         color: 'text-purple-400', bg: 'bg-purple-500/20', border: 'border-purple-500/30', hoverBg: 'hover:bg-purple-500/30' },
   preparing:          { nextStatus: 'reached_restaurant', label: 'Reached Restaurant',   icon: Bike,         color: 'text-purple-400', bg: 'bg-purple-500/20', border: 'border-purple-500/30', hoverBg: 'hover:bg-purple-500/30' },
@@ -46,8 +45,9 @@ export default function DeliveryOrderDetail() {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [liveTracking, setLiveTracking] = useState(false);
   const watchIdRef = useRef(null);
+  const [routeGeometry, setRouteGeometry] = useState([]);
+  const [routeLoading, setRouteLoading] = useState(false);
 
-  // OTP flow
   const [otpStage, setOtpStage]     = useState(false);
   const [otpInput, setOtpInput]     = useState('');
   const [otpError, setOtpError]     = useState('');
@@ -72,7 +72,19 @@ export default function DeliveryOrderDetail() {
     fetchOrder();
   }, [fetchOrder]);
 
-  // Live tracking
+  const fetchRoute = useCallback(async (start, end) => {
+    if (!start?.lat || !start?.lng || !end?.lat || !end?.lng) return;
+    setRouteLoading(true);
+    try {
+      const res = await fetchWithTimeout('/api/routes/directions', { method: 'POST', headers, credentials: 'include', body: JSON.stringify({ start, end }) });
+      const data = await res.json();
+      if (data.ok && data.route?.routes?.[0]?.geometry?.coordinates) {
+        setRouteGeometry(data.route.routes[0].geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] })));
+      }
+    } catch (err) { console.error('Failed to fetch route:', err); }
+    setRouteLoading(false);
+  }, [headers]);
+
   const startLiveTracking = useCallback(() => {
     if (!navigator.geolocation || watchIdRef.current != null) return;
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -103,9 +115,17 @@ export default function DeliveryOrderDetail() {
   useEffect(() => () => stopLiveTracking(), [stopLiveTracking]);
 
   useEffect(() => {
-    if (order?.status === 'out_for_delivery') startLiveTracking();
+    if (order?.status === 'out_for_delivery') {
+      startLiveTracking();
+      if (order.deliveryBoyLocation?.lat && order.customerLocation?.lat) {
+        fetchRoute(
+          { lat: order.deliveryBoyLocation.lat, lng: order.deliveryBoyLocation.lng },
+          { lat: order.customerLocation.lat, lng: order.customerLocation.lng }
+        );
+      }
+    }
     if (order?.status === 'delivered') stopLiveTracking();
-  }, [order?.status, startLiveTracking, stopLiveTracking]);
+  }, [order?.status, startLiveTracking, stopLiveTracking, order?.deliveryBoyLocation, order?.customerLocation, fetchRoute]);
 
   const updateStatus = async (newStatus) => {
     setStatusUpdating(true);
@@ -289,13 +309,15 @@ export default function DeliveryOrderDetail() {
                 </span>
               )}
             </div>
-            <LiveTrackingMap
-              customerLocation={order.customerLocation}
-              driverLocation={order.deliveryBoyLocation}
-              height={180}
-              showControls={true}
-              viewMode="delivery"
-            />
+<LiveTrackingMap
+               customerLocation={order.customerLocation}
+               driverLocation={order.deliveryBoyLocation}
+               routeGeometry={routeGeometry}
+               height={220}
+               showControls={true}
+               showLocate={true}
+               viewMode="delivery"
+             />
             <p className="text-center text-green-400 text-xs font-semibold">
               🛵 Driver is on the way — distance updates in real-time
             </p>
