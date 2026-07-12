@@ -68,7 +68,7 @@ export default function DeliveryOrderDetail() {
   }, [orderId]);
 
   useEffect(() => {
-    if (!user) { navigate('/delivery/login'); return; }
+    if (!user) { navigate('/login'); return; }
     fetchOrder();
   }, [fetchOrder]);
 

@@ -411,8 +411,12 @@ function LoginEmailPasswordFlow() {
 }
 
 // ─── AUTH SCREEN ──────────────────────────────────────────────────────────────
-function AuthScreen() {
-  const [tab, setTab] = useState('login');
+function AuthScreen({ initialTab }) {
+  const [tab, setTab] = useState(initialTab || 'login');
+
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
 
   return (
     <div className="min-h-screen bg-[#0A0604] flex items-center justify-center px-4 py-10">
@@ -804,11 +808,11 @@ function OrderCard({ order, myReviews, onReviewSubmit }) {
 }
 
 // ─── MAIN ACCOUNT PAGE ────────────────────────────────────────────────────────
-export default function AccountPage() {
+export default function AccountPage({ initialTab }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user, isLoggedIn } = useSelector(s => s.auth);
-  const [tab, setTab]               = useState('home');
+  const [tab, setTab]               = useState(initialTab || 'home');
   const [orders, setOrders]         = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [myReviews, setMyReviews]   = useState([]);
@@ -1093,7 +1097,7 @@ export default function AccountPage() {
     setProfileSaving(false);
   };
 
-  if (!isLoggedIn) return <AuthScreen />;
+  if (!isLoggedIn) return <AuthScreen initialTab={tab} />;
 
   const role = user?.role || 'user';
   const tabs = role === 'admin'

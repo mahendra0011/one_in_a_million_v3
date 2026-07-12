@@ -70,7 +70,7 @@ export default function DeliveryNotifications() {
   }, []);
 
   useEffect(() => {
-    if (!user) { navigate('/delivery/login'); return; }
+    if (!user) { navigate('/login'); return; }
     fetchNotifications();
   }, []);
 

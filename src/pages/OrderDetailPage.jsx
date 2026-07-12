@@ -143,11 +143,12 @@ export default function OrderDetailPage() {
                  <Radio size={10} className="animate-pulse" /> Live
                </span>
              </div>
-             <LiveTrackingMap
-               customerLocation={order.customerLocation}
-               driverLocation={order.deliveryBoyLocation}
-               height={200}
-             />
+<LiveTrackingMap
+                customerLocation={order.customerLocation}
+                driverLocation={order.deliveryBoyLocation}
+                height={200}
+                viewMode="user"
+              />
               {loc && (
                 <p className="text-[#8E827B] text-xs text-center mt-2">
                   🛵 Driver location: {loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}

@@ -75,7 +75,7 @@ export default function DeliveryEarnings() {
   }, []);
 
   useEffect(() => {
-    if (!user) { navigate('/delivery/login'); return; }
+    if (!user) { navigate('/login'); return; }
     fetchEarnings();
   }, []);
 

@@ -39,8 +39,13 @@ function DriverMarker({ location, viewMode }) {
   useEffect(() => {
     if (!isLoaded || !map || !location?.lat) return;
     const el = document.createElement('div');
-    const isDeliveryView = viewMode === 'delivery';
-    el.innerHTML = `<div style="width:36px;height:36px;background:${isDeliveryView ? '#3b82f6' : '#F07D14'};border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 3px 12px rgba(${isDeliveryView ? '59,130,246' : '240,125,20'},0.4);transition:box-shadow 0.3s">${isDeliveryView ? '👤' : '🛵'}</div>`;
+    // viewMode='user' → customer dekhega → motorcycle 🛵
+    // viewMode='delivery' → delivery boy dekhega → person icon
+    const showMotorcycle = viewMode === 'user';
+    const bgColor = showMotorcycle ? '#F07D14' : '#3b82f6';
+    const shadowRgb = showMotorcycle ? '240,125,20' : '59,130,246';
+    const content = showMotorcycle ? '🛵' : '👤';
+    el.innerHTML = `<div style="width:42px;height:42px;background:${bgColor};border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 15px rgba(${shadowRgb},0.5)">${content}</div>`;
     const m = new maplibregl.Marker({ element: el })
       .setLngLat([location.lng, location.lat])
       .addTo(map);
@@ -131,21 +136,21 @@ export default function LiveTrackingMap({
     <div style={{ height, position: 'relative' }} className="rounded-2xl overflow-hidden border border-white/10 bg-[#0A0604]">
       <Map center={center} zoom={14}>
         {showControls && (
-          <MapControls position="bottom-right" showZoom showLocate showFullscreen />
+          <MapControls position="top-right" showZoom showCompass showLocate showFullscreen />
         )}
 
         {showRoute && routeCoords.length >= 2 && (
-          <MapRoute coordinates={routeCoords} color="#F07D14" width={4} opacity={0.85} />
+          <MapRoute coordinates={routeCoords} color="#000000" width={5} opacity={0.9} />
         )}
 
         {driverPathCoords.length >= 2 && (
           <MapRoute
             id="driver-path"
             coordinates={driverPathCoords}
-            color="#4A90D9"
-            width={2}
-            opacity={0.4}
-            dashArray={[2, 2]}
+            color="#000000"
+            width={3}
+            opacity={0.5}
+            dashArray={[3, 3]}
           />
         )}
 
@@ -169,7 +174,9 @@ export default function LiveTrackingMap({
           <MapMarker longitude={customerLocation.lng} latitude={customerLocation.lat}>
             <MarkerContent>
               {viewMode === 'delivery' ? (
-                <User size={30} className="text-blue-500 fill-blue-500 drop-shadow-lg" />
+                <div className="w-10 h-10 bg-red-600 border-3 border-white rounded-full flex items-center justify-center shadow-xl shadow-red-600/40">
+                  <MapPin size={20} className="text-white" />
+                </div>
               ) : (
                 <MapPin size={30} className="text-red-500 fill-red-500 drop-shadow-lg" />
               )}
@@ -186,28 +193,18 @@ export default function LiveTrackingMap({
         {driverLocation?.lat && <DriverMarker location={driverLocation} viewMode={viewMode} />}
       </Map>
 
+      {/* Route icon - top-right menubar ke neeche */}
       {showControls && driverLocation?.lat && customerLocation?.lat && (
         <button
           onClick={() => onMarkDestination?.(customerLocation)}
-          className="absolute bottom-14 right-14 z-10 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#F07D14]/20 border border-[#F07D14]/40 text-[#F07D14] text-xs font-bold hover:bg-[#F07D14]/30 transition-colors backdrop-blur-sm"
-          title="Show route from your location"
+          className="absolute top-[204px] right-2 z-10 w-9 h-9 rounded-lg bg-black/70 border border-white/20 flex items-center justify-center hover:bg-black/90 transition-all shadow-lg"
+          title="Show route"
         >
-          <Navigation size={14} />
-          Route
+          <Navigation size={18} className="text-white" />
         </button>
       )}
 
-      {showControls && onUseMyLocation && (
-        <button
-          onClick={onUseMyLocation}
-          className="absolute bottom-14 left-14 z-10 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/20 border border-blue-500/40 text-blue-400 text-xs font-bold hover:bg-blue-500/30 transition-colors backdrop-blur-sm"
-          title="Use my current location"
-        >
-          <Crosshair size={14} />
-          My Location
-        </button>
-      )}
-
+      {/* Distance indicator */}
       <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
         {distance != null && (
           <div className="bg-black/75 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg backdrop-blur-sm border border-white/10">

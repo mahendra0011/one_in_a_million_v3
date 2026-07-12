@@ -48,7 +48,6 @@ const AdminReviews      = lazy(() => import('./pages/admin/AdminReviews'));
 const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications'));
 
 // Delivery pages
-const DeliveryLogin     = lazy(() => import('./pages/delivery/DeliveryLogin'));
 const DeliverySetPassword = lazy(() => import('./pages/delivery/DeliverySetPassword'));
 const DeliveryDashboard = lazy(() => import('./pages/delivery/DeliveryDashboard'));
 const DeliveryOrderDetail = lazy(() => import('./pages/delivery/DeliveryOrderDetail'));
@@ -213,6 +212,8 @@ export default function App() {
             <Route path="/search" element={<SearchPage onAddToCart={handleAddToCart} onCustomize={handleCustomize} />} />
             <Route path="/reviews" element={<ReviewsPage />} />
             <Route path="/account" element={<AccountPage />} />
+            <Route path="/login" element={<AccountPage initialTab="login" />} />
+            <Route path="/create-account" element={<AccountPage initialTab="register" />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/payment" element={<PaymentPage />} />
@@ -234,7 +235,6 @@ export default function App() {
             </Route>
 
             {/* Delivery Boy Routes */}
-            <Route path="/delivery/login" element={<DeliveryLogin />} />
             <Route path="/delivery/set-password" element={<DeliverySetPassword />} />
             <Route path="/delivery" element={<DeliveryGuard><DeliveryDashboard /></DeliveryGuard>} />
             <Route path="/delivery/orders/:orderId" element={<DeliveryGuard><DeliveryOrderDetail /></DeliveryGuard>} />
