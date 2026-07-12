@@ -225,4 +225,12 @@ export const sizeOptions = [
   { id: "double", label: "Double", price: 79 },
 ];
 
+export const spiceLevels = [
+  { id: 0, label: "No Spice", emoji: "🌶️" },
+  { id: 1, label: "Mild", emoji: "🌶️" },
+  { id: 2, label: "Medium", emoji: "🌶️🌶️" },
+  { id: 3, label: "Hot", emoji: "🌶️🌶️🌶️" },
+  { id: 4, label: "Extra Hot", emoji: "🌶️🌶️🌶️🌶️" },
+];
+
 // Coupons are now managed dynamically via /api/coupons — see AdminCoupons.jsx
