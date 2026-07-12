@@ -89,6 +89,16 @@ const DEALS = [
     color: 'bg-[#16100D] border-[#F07D14]/20',
     badgeColor: 'bg-[#E86C1B]',
   },
+  {
+    title: 'Student Special',
+    subtitle: 'Valid with student ID',
+    desc: 'Show your student ID and get 20% off any meal combo. Perfect for study sessions.',
+    emoji: '🎓',
+    badge: 'Student Deal',
+    color: 'bg-[#16100D] border-[#F07D14]/20',
+    badgeColor: 'bg-blue-600',
+    link: '/menu',
+  },
 ];
 
 function CouponCard({ coupon }) {
