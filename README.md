@@ -248,13 +248,71 @@ Password: admin123
 - Sections: Dashboard, Menu, Orders, Reservations, Customers, Coupons, Reviews, Delivery Boys, Notifications, Analytics, Settings
 
 ## 🚴 Delivery Panel
-
-- Access at: **`/delivery/login`**
-- Sections: Dashboard, Order Detail, Earnings, Profile, Notifications, Set Password
-
----
-
-## 🎨 Color Theme
+ 
+ - Access at: **`/delivery/login`**
+ - Sections: Dashboard, Order Detail, Earnings, Profile, Notifications, Set Password
+ 
+ ---
+ 
+ ## 🛰️ Live Tracking System (20-Step Implementation)
+ 
+ This system provides real-time burger delivery tracking with the following architecture:
+ 
+ ### Phase 1: Backend & Real-time Infrastructure
+ - **Step 1-3**: Node.js project with Express, MongoDB, Socket.io, and Redis adapter for scalable pub/sub
+ - **Step 4**: Database schemas (User, Order, DeliveryNotif, DeliveryRating)
+ - **Step 5**: Admin API for delivery boy onboarding
+ 
+ ### Phase 2: User Order Flow
+ - **Step 6-7**: User frontend with geolocation + manual address input + MapTiler geocoding
+ - **Step 8**: Order placement saves coordinates and address to database
+ 
+ ### Phase 3: Delivery Flow & OTP
+ - **Step 9-11**: Delivery boy notifications, order acceptance with location, OTP via email
+ 
+ ### Phase 4: Live Tracking Core
+ - **Step 12**: Socket.io rooms per order (`order_<orderId>`)
+ - **Step 13**: Background geolocation (HTML5 + Wake Lock API for mobile)
+ - **Step 14**: Socket emission for location updates
+ - **Step 15**: OpenRouteService map matching (snap-to-road) for accurate positioning
+ 
+ ### Phase 5: Map Integration (MapLibre + MapTiler)
+ - **Step 16-17**: MapLibre maps with streets-v2 style, MapTiler API key
+ - **Step 18-19**: Driver dashboard with route polyline + live map for users
+ 
+ ### Phase 6: Delivery & Cleanup
+ - **Step 20**: OTP verification marks order delivered + cleanup
+ 
+ ### Real-time Events Flow
+ ```
+ User places order → Admin assigns → Delivery boy gets notification → 
+ Driver accepts (sends location) → Live tracking starts → 
+ OTP generated when near customer → OTP verified → Order marked delivered
+ ```
+ 
+ ### API Endpoints for Live Tracking
+ | Method | Endpoint | Description |
+ |--------|----------|-------------|
+ | POST | `/api/routes/directions` | Get route polyline between two points (ORS) |
+ | POST | `/api/routes/snap` | Snap GPS coordinates to road (ORS matching) |
+ | GET | `/api/geocode/search` | Address search with MapTiler/Nominatim |
+ | PATCH | `/api/delivery/my-location` | Update driver's current location |
+ | PATCH | `/api/delivery/orders/:id/location` | Push location during delivery |
+ | PATCH | `/api/delivery/orders/:id/accept` | Accept order with location |
+ | POST | `/api/delivery/orders/:id/request-delivery-otp` | Generate OTP for delivery |
+ | POST | `/api/delivery/orders/:id/verify-otp` | Verify OTP and complete delivery |
+ 
+ ### Socket.io Rooms
+ | Room | Join Event | Purpose |
+ |------|------------|---------|
+ | `admin` | `join-admin` | Admin dashboard notifications |
+ | `user-{id}` | `join-user` | Customer notifications |
+ | `delivery-{id}` | `join-delivery` | Delivery boy assignments |
+ | `order-{orderId}` | `track-order` | Live location updates |
+ 
+ ---
+ 
+ ## 🎨 Color Theme
 
 ```
 Orange:  #f46d22

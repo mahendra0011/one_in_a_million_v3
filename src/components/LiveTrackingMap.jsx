@@ -3,6 +3,30 @@ import { useEffect, useRef, useState } from 'react';
 const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_API_KEY || '';
 const STYLE_URL = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`;
 
+// Step 17: Animation helper for smooth marker movement
+function animateMarkerTo(marker, targetLng, targetLat, duration = 500) {
+  const start = performance.now();
+  const startCoords = marker.getLngLat();
+  const endCoords = [targetLng, targetLat];
+  
+  function step(currentTime) {
+    const elapsed = currentTime - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeProgress = 1 - Math.pow(1 - progress, 3); // Ease-out cubic
+    
+    const lng = startCoords.lng + (endCoords[0] - startCoords.lng) * easeProgress;
+    const lat = startCoords.lat + (endCoords[1] - startCoords.lat) * easeProgress;
+    
+    marker.setLngLat([lng, lat]);
+    
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    }
+  }
+  
+  requestAnimationFrame(step);
+}
+
 function openMapsDirections(sLat, sLng, dLat, dLng) {
   window.open(`https://www.google.com/maps/dir/${sLat},${sLng}/${dLat},${dLng}`, '_blank');
 }
@@ -28,6 +52,7 @@ export default function LiveTrackingMap({
   routeGeometry = [],
   height = 300,
   showRoute = true,
+  showControls = true,
 }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
@@ -36,6 +61,7 @@ export default function LiveTrackingMap({
   const [loaded, setLoaded] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [maplibre, setMaplibre] = useState(null);
+  const [prevDriverLoc, setPrevDriverLoc] = useState(null);
   const distance = (customerLocation?.lat && driverLocation?.lat)
     ? calculateDistance(driverLocation.lat, driverLocation.lng, customerLocation.lat, customerLocation.lng)
     : null;
@@ -100,14 +126,28 @@ export default function LiveTrackingMap({
 
   useEffect(() => {
     if (!mapRef.current || !driverLocation?.lat || !driverLocation?.lng || !maplibre) return;
+    
+    // Smooth animation for driver marker (Step 19)
     if (driverMarkerRef.current) {
-      driverMarkerRef.current.setLngLat([driverLocation.lng, driverLocation.lat]);
+      const currentLng = driverMarkerRef.current.getLngLat().lng;
+      const currentLat = driverMarkerRef.current.getLngLat().lat;
+      const distance = Math.sqrt(
+        Math.pow(driverLocation.lng - currentLng, 2) + 
+        Math.pow(driverLocation.lat - currentLat, 2)
+      );
+      
+      // Only animate if significant movement (> ~10 meters)
+      if (distance > 0.00001) {
+        animateMarkerTo(driverMarkerRef.current, driverLocation.lng, driverLocation.lat, 500);
+      }
     } else {
       const el = document.createElement('div');
       el.innerHTML = '🛵';
       el.style.fontSize = '28px';
+      el.style.cursor = 'pointer';
       driverMarkerRef.current = new maplibre.Marker({ element: el })
         .setLngLat([driverLocation.lng, driverLocation.lat])
+        .setPopup(new maplibre.Popup().setHTML('<b>🛵 Delivery Boy</b>'))
         .addTo(mapRef.current);
     }
   }, [driverLocation?.lat, driverLocation?.lng, maplibre]);

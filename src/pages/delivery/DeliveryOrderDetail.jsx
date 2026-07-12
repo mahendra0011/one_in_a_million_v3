@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSocket } from '../../hooks/useSocket';
+import LiveTrackingMap from '../../components/LiveTrackingMap';
 
 const STATUS_FLOW = [
   { key: 'confirmed',          label: 'Order Accepted',      icon: CheckCircle2, color: 'text-blue-400',   bg: 'bg-blue-500/20',   border: 'border-blue-500/30' },
@@ -284,6 +285,22 @@ export default function DeliveryOrderDetail() {
             <p className="text-[#8E827B] text-xs text-center">Customer ka GPS location available nahi hai</p>
           )}
         </div>
+
+        {/* Live Tracking Map - Step 18: Show route when out for delivery */}
+        {order.status === 'out_for_delivery' && order.customerLocation?.lat && order.customerLocation?.lng && (
+          <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-4 space-y-3">
+            <p className="text-[#8E827B] text-[10px] font-bold uppercase tracking-wide">Live Location</p>
+            <LiveTrackingMap
+              customerLocation={order.customerLocation}
+              driverLocation={order.deliveryBoyLocation}
+              height={180}
+              showControls={false}
+            />
+            <p className="text-center text-green-400 text-xs font-semibold">
+              🛵 Driver is on the way — distance updates in real-time
+            </p>
+          </div>
+        )}
 
         {/* Order Items */}
         <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-4 space-y-3">

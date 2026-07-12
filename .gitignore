@@ -1,11 +1,24 @@
+# Dependencies
 node_modules/
-dist/
-build/
+ 
+# Build outputs
+ dist/
+ build/
+ 
+# Environment files (NEVER commit real credentials)
 .env
 .env.local
-server/.env
+.env.*.local
+ server/.env
+ 
+# Logs
 *.log
-npm-debug.log*
+ npm-debug.log*
+ 
+# OS files
 .DS_Store
+ Thumbs.db
+ 
+# IDE
 .vscode/
 .idea/
