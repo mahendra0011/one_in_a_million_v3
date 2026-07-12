@@ -54,6 +54,7 @@ export default function AboutPage() {
     { year: '2018', title: 'The Beginning', desc: 'Started as a small food truck with a big dream', emoji: '🚚' },
     { year: '2019', title: 'First Outlet', desc: 'Opened our first brick-and-mortar store', emoji: '🏪' },
     { year: '2021', title: 'Going Digital', desc: 'Launched online ordering and delivery', emoji: '💻' },
+    { year: '2023', title: 'Award Winner', desc: 'Won Best Fast Food at Zomato Restaurant Awards', emoji: '🏆' },
     { year: '2024', title: '50K+ Customers', desc: 'Serving thousands of happy burger lovers', emoji: '🎉' },
   ];
 
