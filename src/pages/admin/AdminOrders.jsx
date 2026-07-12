@@ -29,6 +29,9 @@ const STATUS_STYLE = {
   cancelled:          'bg-red-100 text-red-600',
 };
 
+// Available delivery boys cache
+let deliveryBoysCache = [];
+
 // ── Print helper ──────────────────────────────────────────────────────────────
 function printOrder(order) {
   const items = (order.items || []).map(i =>
