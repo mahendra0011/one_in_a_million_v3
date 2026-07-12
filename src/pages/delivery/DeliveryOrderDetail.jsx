@@ -33,11 +33,14 @@ const NEXT_ACTION = {
   picked_up:          { nextStatus: 'out_for_delivery',   label: 'Out for Delivery',     icon: Truck,        color: 'text-orange-400', bg: 'bg-orange-500/20', border: 'border-orange-500/30', hoverBg: 'hover:bg-orange-500/30' },
 };
 
+// Module-level — was previously re-created inside the component every render,
+// which gave fetchRoute/startLiveTracking a new identity each render.
+const headers = { 'Content-Type': 'application/json' };
+
 export default function DeliveryOrderDetail() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const user = (() => { try { return JSON.parse(localStorage.getItem('bim_user') || 'null'); } catch { return null; }})();
-  const headers = { 'Content-Type': 'application/json' };
 
   const [order, setOrder]               = useState(null);
   const [loading, setLoading]           = useState(true);

@@ -16,6 +16,11 @@ async function safeJson(res) {
 
 const LOCATION_UPDATE_INTERVAL = 45000;
 
+// Module-level — was previously re-created inside the component every render,
+// which cascaded into fetchRoute/snapToRoad/startLiveTracking/pushMyLocation
+// all getting new identities each render (see bug report §3b).
+const headers = { 'Content-Type': 'application/json' };
+
 const REJECT_REASONS = [
   'Too far', 'Vehicle issue', 'Already busy', 'Area not serviceable', 'Other',
 ];
@@ -185,7 +190,6 @@ export default function DeliveryDashboard() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const user = (() => { try { return JSON.parse(localStorage.getItem('bim_user') || 'null'); } catch { return null; }})();
-  const headers = { 'Content-Type': 'application/json' };
 
   const [orders, setOrders] = useState([]);
   const [deliveredOrders, setDeliveredOrders] = useState([]);
