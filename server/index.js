@@ -1111,6 +1111,7 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
     // Server-side price validation — never trust client prices
     const itemsWithDbPrices = [];
     let serverCalculatedTotal = 0;
+    const menuItemsToUpdate = [];
     for (const item of req.body.items) {
       if (!item.productId || !item.qty || item.qty < 1) {
         return res.status(400).json({ ok: false, error: 'Invalid item: productId and positive qty required' });
@@ -1126,6 +1127,9 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
       const itemTotal = menuItem.price * item.qty;
       serverCalculatedTotal += itemTotal;
       itemsWithDbPrices.push({ ...item, basePrice: menuItem.price, unitPrice: menuItem.price });
+      if (menuItem.stock !== null) {
+        menuItemsToUpdate.push({ id: item.productId, qty: item.qty });
+      }
     }
     // Validate coupon if provided
     let couponDiscount = 0;
@@ -1149,7 +1153,6 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
     }
     const deliveryCharge = req.body.deliveryCharge || 0;
     // Compute tax: 5% of (subtotal - couponDiscount - pointsDiscount)
-    const clientPointsDiscount = req.body.totals?.pointsDiscount || 0;
     const serverTax = Math.round((serverCalculatedTotal - couponDiscount - clientPointsDiscount) * 0.05);
     const serverCalculatedGrandTotal = serverCalculatedTotal + deliveryCharge - couponDiscount - clientPointsDiscount + serverTax;
     // Validate minOrderAmount from settings
@@ -1162,8 +1165,15 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
     if (Math.abs(clientTotal - serverCalculatedGrandTotal) > 2) {
       return res.status(400).json({ ok: false, error: 'Price mismatch detected. Please refresh and try again.' });
     }
-    // Clamp redeemed points server-side - only deduct points that gave actual discount
+    // Validate loyalty points usage - requires authentication
+    if (clientPointsDiscount > 0 && !user) {
+      return res.status(400).json({ ok: false, error: 'Loyalty points require authentication' });
+    }
     const pointsRedeemed = clientPointsDiscount > 0 ? clientPointsDiscount * 10 : 0;
+    // Validate user has enough loyalty points
+    if (pointsRedeemed > 0 && user.loyaltyPoints < pointsRedeemed) {
+      return res.status(400).json({ ok: false, error: 'Insufficient loyalty points' });
+    }
     const order = await Order.create({
       userId: req.user.id,
       ...req.body,
@@ -1185,6 +1195,10 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
         { code: req.body.coupon.toUpperCase(), isActive: true, $or: [{ maxUses: null }, { $expr: { $lt: ['$usedCount', '$maxUses'] } }] },
         { $inc: { usedCount: 1 } }
       );
+    }
+    // Decrement stock for ordered items
+    for (const item of menuItemsToUpdate) {
+      await MenuItem.updateOne({ id: item.id }, { $inc: { stock: -item.qty } });
     }
     notifyAdmin('new-order', order);
     if (pointsRedeemed > 0) {
@@ -1231,12 +1245,29 @@ app.get('/api/orders/:id', authenticate, v.vOrderIdParam, validate, async (req, 
 });
 
 app.patch('/api/orders/:id/status', adminOnly, v.vOrderUpdateStatus, validate, async (req, res) => {
+  const session = await mongoose.startSession();
   try {
     const { status, assignedTo } = req.body;
     const update = { status };
     if (assignedTo) { update.assignedTo = assignedTo; update.assignedAt = new Date(); }
     const order = await Order.findOneAndUpdate({ orderId: req.params.id }, update, { new: true });
     if (!order) return res.status(404).json({ ok: false, error: 'Order not found' });
+    
+    // Handle cancel - rollback coupon usage and refund loyalty points (same as user cancel)
+    if (status === 'cancelled') {
+      await session.withTransaction(async () => {
+        if (order.coupon) {
+          await Coupon.findOneAndUpdate(
+            { code: order.coupon.toUpperCase() },
+            { $inc: { usedCount: -1 } }
+          ).session(session);
+        }
+        if (order.pointsRedeemed > 0 && order.userId) {
+          await User.findByIdAndUpdate(order.userId, { $inc: { loyaltyPoints: order.pointsRedeemed } }).session(session);
+        }
+      });
+    }
+    
     // Auto-generate delivery OTP when status changes to out_for_delivery
     if (status === 'out_for_delivery') {
       const otp = generateOtp();
@@ -1251,13 +1282,15 @@ app.patch('/api/orders/:id/status', adminOnly, v.vOrderUpdateStatus, validate, a
     if (status === 'delivered') await awardLoyaltyPointsOnce(order);
     if (assignedTo) {
       notifyDelivery(assignedTo, 'new-assignment', order);
+      sendPushToDelivery(assignedTo, { title: '🛵 Nayi Order Assign!', body: `Order ${order.orderId} aapko assign hua hai — ₹${order.totals?.total?.toFixed(0)}`, url: `/delivery` });
       createDeliveryNotif({ deliveryBoyId: assignedTo, type: 'new_order', title: '🛵 Nayi Order Assign!', body: `Order ${order.orderId} aapko assign hua hai — ₹${order.totals?.total?.toFixed(0)}`, data: { orderId: order.orderId } });
     }
     if (status === 'cancelled' && order.assignedTo) {
+      sendPushToDelivery(order.assignedTo, { title: '❌ Order Cancel Hua', body: `Order ${order.orderId} customer ne cancel kar diya.`, url: `/delivery` });
       createDeliveryNotif({ deliveryBoyId: order.assignedTo, type: 'order_cancelled', title: '❌ Order Cancel Hua', body: `Order ${order.orderId} customer ne cancel kar diya.`, data: { orderId: order.orderId } });
     }
     res.json({ ok: true, order });
-  } catch (err) { res.status(400).json({ ok: false, error: err.message }); }
+  } catch (err) { res.status(400).json({ ok: false, error: 'Internal server error' }); }
 });
 
 app.post('/api/orders/:id/cancel', authenticate, async (req, res) => {
@@ -1311,9 +1344,10 @@ app.patch('/api/orders/:id/assign', adminOnly, v.vOrderAssign, validate, async (
     if (!order) return res.status(404).json({ ok: false, error: 'Order not found' });
     broadcastStatusUpdate(order, 'confirmed');
     notifyDelivery(deliveryBoyId, 'new-assignment', order);
+    sendPushToDelivery(deliveryBoyId, { title: '🛵 Nayi Order Assign!', body: `Order ${order.orderId} aapko assign hua hai — ₹${order.totals?.total?.toFixed(0)}`, url: `/delivery` });
     createDeliveryNotif({ deliveryBoyId, type: 'new_order', title: '🛵 Nayi Order Assign!', body: `Order ${order.orderId} aapko assign hua hai — ₹${order.totals?.total?.toFixed(0)}`, data: { orderId: order.orderId } });
     res.json({ ok: true, order });
-  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+  } catch (err) { res.status(500).json({ ok: false, error: 'Internal server error' }); }
 });
 
 // ─── ADMIN CUSTOMER MANAGEMENT ─────────────────────────────────────────────
@@ -1326,18 +1360,21 @@ app.get('/api/admin/customers', adminOnly, async (req, res) => {
 
 app.patch('/api/admin/customers/:id/ban', adminOnly, v.vAdminUpdateCustomer, validate, async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, { isBanned: req.body.isBanned }, { new: true });
+    const user = await User.findByIdAndUpdate(req.params.id, { isBanned: req.body.isBanned }, { new: true }).select('-password -loginAttempts -lockUntil');
     if (!user) return res.status(404).json({ ok: false, error: 'Customer not found' });
     res.json({ ok: true, customer: user });
-  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+  } catch (err) { res.status(500).json({ ok: false, error: 'Internal server error' }); }
 });
 
 app.patch('/api/admin/customers/:id/loyalty', adminOnly, v.vAdminUpdateLoyalty, validate, async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, { $inc: { loyaltyPoints: req.body.points } }, { new: true });
+    const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ ok: false, error: 'Customer not found' });
-    res.json({ ok: true, customer: user });
-  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+    const newPoints = (user.loyaltyPoints || 0) + req.body.points;
+    if (newPoints < 0) return res.status(400).json({ ok: false, error: 'Cannot reduce points below zero' });
+    const updated = await User.findByIdAndUpdate(req.params.id, { loyaltyPoints: newPoints }, { new: true }).select('-password -loginAttempts -lockUntil');
+    res.json({ ok: true, customer: updated });
+  } catch (err) { res.status(500).json({ ok: false, error: 'Internal server error' }); }
 });
 
 app.post('/api/orders/:id/generate-delivery-otp', deliveryOnly, otpLimiter, v.vOrderIdParam, validate, async (req, res) => {
@@ -1502,18 +1539,13 @@ app.post('/api/coupons/use', optionalAuth, async (req, res) => {
   try {
     const { code } = req.body;
     if (!code) return res.status(400).json({ ok: false, error: 'code required' });
-    // Atomic update with validation - only increment if coupon is still valid
     const coupon = await Coupon.findOneAndUpdate(
       {
         code: code.toUpperCase(),
         isActive: true,
-        $or: [
-          { expiry: null },
-          { expiry: { $gt: new Date() } }
-        ],
-        $or: [
-          { maxUses: null },
-          { $expr: { $lt: ['$usedCount', '$maxUses'] } }
+        $and: [
+          { $or: [{ expiry: null }, { expiry: { $gt: new Date() } }] },
+          { $or: [{ maxUses: null }, { $expr: { $lt: ['$usedCount', '$maxUses'] } }] }
         ]
       },
       { $inc: { usedCount: 1 } },
@@ -1521,7 +1553,7 @@ app.post('/api/coupons/use', optionalAuth, async (req, res) => {
     );
     if (!coupon) return res.status(400).json({ ok: false, error: 'Coupon invalid, expired, or usage limit reached' });
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+  } catch (err) { res.status(500).json({ ok: false, error: 'Internal server error' }); }
 });
 
 app.get('/api/coupons/my', optionalAuth, async (req, res) => {
@@ -2007,7 +2039,11 @@ app.post('/api/auth/login/unified/send-otp', authLimiter, v.vUnifiedLoginSendOtp
       const redirectMap = { admin: 'bim_admin_token', delivery_boy: 'bim_delivery_token', user: 'bim_token' };
       const cookieName = redirectMap[user.role] || 'bim_token';
       setAuthCookie(res, token, cookieName, 7 * 24 * 60 * 60 * 1000);
-      return res.json({ ok: true, skipOtp: true, user, redirectTo: redirectMap[user.role] === 'bim_admin_token' ? '/admin' : redirectMap[user.role] === 'bim_delivery_token' ? '/delivery' : '/' });
+      const safeUser = user.toObject();
+      delete safeUser.password;
+      delete safeUser.loginAttempts;
+      delete safeUser.lockUntil;
+      return res.json({ ok: true, skipOtp: true, user: safeUser, redirectTo: redirectMap[user.role] === 'bim_admin_token' ? '/admin' : redirectMap[user.role] === 'bim_delivery_token' ? '/delivery' : '/' });
     }
     
     const otp = generateOtp();
@@ -2244,7 +2280,7 @@ app.get('/api/push/public-key', (_req, res) => {
   res.json({ ok: true, publicKey: VAPID_PUBLIC_KEY || null });
 });
 
-app.post('/api/push/subscribe', authenticate, async (req, res) => {
+app.post('/api/push/subscribe', deliveryOnly, async (req, res) => {
   const { subscription } = req.body;
   if (!subscription) return res.status(400).json({ ok: false, error: 'subscription required' });
   try {
@@ -2255,7 +2291,7 @@ app.post('/api/push/subscribe', authenticate, async (req, res) => {
     );
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    res.status(500).json({ ok: false, error: 'Failed to save subscription' });
   }
 });
 

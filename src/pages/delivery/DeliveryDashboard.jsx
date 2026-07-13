@@ -222,8 +222,10 @@ export default function DeliveryDashboard() {
   const [notifications, setNotifications] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
   const [avgRating, setAvgRating] = useState(null);
+  const [socketError, setSocketError] = useState(false);
   const photoInputRef = useRef(null);
   const watchIdRef = useRef(null);
+  const socketErrorTimerRef = useRef(null);
 
   const { pushLocation, isConnected } = useSocket({
     joinDelivery: user?.id,
@@ -244,6 +246,17 @@ export default function DeliveryDashboard() {
 
   const isConnectedRef = useRef(isConnected);
   useEffect(() => { isConnectedRef.current = isConnected; }, [isConnected]);
+
+  // Show socket error indicator if disconnected for more than 10 seconds
+  useEffect(() => {
+    if (!isConnected) {
+      socketErrorTimerRef.current = setTimeout(() => setSocketError(true), 10000);
+    } else {
+      if (socketErrorTimerRef.current) clearTimeout(socketErrorTimerRef.current);
+      setSocketError(false);
+    }
+    return () => { if (socketErrorTimerRef.current) clearTimeout(socketErrorTimerRef.current); };
+  }, [isConnected]);
 
   const fetchOrders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -543,6 +556,16 @@ export default function DeliveryDashboard() {
         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
           className="bg-gradient-to-r from-gray-500/15 to-gray-500/10 border-b border-gray-500/20 px-4 py-3">
           <p className="text-gray-400 text-sm text-center font-bold max-w-lg mx-auto">⛔ You are Offline — Nayi orders assign nahi hongi jab tak Online nahi hote</p>
+        </motion.div>
+      )}</AnimatePresence>
+
+      {/* Socket Error Banner */}
+      <AnimatePresence>{socketError && (
+        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+          className="bg-gradient-to-r from-yellow-500/20 to-yellow-500/10 border-b border-yellow-500/30 px-4 py-3">
+          <p className="text-yellow-400 text-sm text-center font-bold max-w-lg mx-auto flex items-center justify-center gap-2">
+            <Radio size={14} className="animate-pulse" /> Live updates may be delayed — connection issue
+          </p>
         </motion.div>
       )}</AnimatePresence>
 

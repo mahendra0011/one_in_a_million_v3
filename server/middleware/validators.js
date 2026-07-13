@@ -113,7 +113,7 @@ export const vDeliveryLocation = [
 export const vDeliveryOrderStatus = [
   param('orderId').trim().notEmpty().withMessage('orderId is required'),
   body('status').trim().notEmpty().withMessage('status is required')
-    .isIn(['pending', 'confirmed', 'preparing', 'reached_restaurant', 'picked_up', 'out_for_delivery', 'delivered', 'cancelled'])
+    .isIn(['pending', 'confirmed', 'preparing', 'reached_restaurant', 'picked_up', 'out_for_delivery', 'cancelled'])
     .withMessage('Invalid status value'),
 ];
 

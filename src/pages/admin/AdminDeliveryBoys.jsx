@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { SkeletonTable } from '../../components/admin/SkeletonRow';
 import { useSocket } from '../../hooks/useSocket';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const EMPTY_FORM = { name: '', phone: '', email: '', password: '', vehicleType: '', vehicleNumber: '' };
 
 export default function AdminDeliveryBoys() {
@@ -185,7 +186,8 @@ export default function AdminDeliveryBoys() {
                         {boy.isOnline ? 'Online' : 'Offline'}
                       </span>
                       {Array.isArray(boy.unavailableDays) && boy.unavailableDays.includes(new Date().getDay()) && (
-                        <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700" title={boy.availabilityNote || 'Marked unavailable today'}>
+                        <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700"
+                          title={boy.availabilityNote ? `${boy.availabilityNote} · Off: ${boy.unavailableDays.sort().map(d => DAY_NAMES[d]).join(', ')}` : `Off days: ${boy.unavailableDays.sort().map(d => DAY_NAMES[d]).join(', ')}`}>
                           ⚠️ Unavailable today
                         </div>
                       )}
