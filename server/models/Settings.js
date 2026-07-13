@@ -2,10 +2,14 @@ import mongoose from 'mongoose';
 
 const settingsSchema = new mongoose.Schema({
   restaurantName: { type: String, default: 'One in a Million' },
+  tagline:        { type: String, default: '' },
   address:        { type: String, default: '303, Mall Road, Civil Lines, Jabalpur' },
   phone:          { type: String, default: '+91 9967412613' },
+  email:          { type: String, default: '' },
+  gstNumber:      { type: String, default: '' },
   openTime:       { type: String, default: '11:00' },
   closeTime:      { type: String, default: '23:00' },
+  closedDays:     { type: [String], default: [] },
   deliveryRadius: { type: Number, default: 5 },
   deliveryCharge: { type: Number, default: 39 },
   minOrderAmount: { type: Number, default: 149 },
