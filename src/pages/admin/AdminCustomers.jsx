@@ -1,6 +1,6 @@
 import { fetchWithTimeout } from '../../lib/utils';
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Star, Phone, Mail, Ban, Gift } from 'lucide-react';
+import { Search, Star, Phone, Mail, Ban, Gift, X } from 'lucide-react';
 import { SkeletonTable, SkeletonCard } from '../../components/admin/SkeletonRow';
 
 const TIER_STYLES = {
@@ -24,6 +24,7 @@ export default function AdminCustomers() {
   const [tierFilter, setTierFilter]     = useState('all');
   const [pointsModal, setPointsModal]   = useState(null);
   const [pointsInput, setPointsInput]   = useState('');
+  const [actionError, setActionError]   = useState('');
 
   const headers = { 'Content-Type': 'application/json' };
 
@@ -52,8 +53,13 @@ export default function AdminCustomers() {
       });
       if (res.ok) {
         setCustomers(prev => prev.map(c => (c._id || c.id) === id ? { ...c, isBanned: !c.isBanned } : c));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setActionError(err.error || 'Failed to update ban status');
       }
-    } catch { /* silent */ }
+    } catch (e) {
+      setActionError(e.message || 'Network error');
+    }
   };
 
   const openPointsModal = (customer) => {
@@ -76,8 +82,13 @@ export default function AdminCustomers() {
       if (res.ok) {
         const data = await res.json();
         setCustomers(prev => prev.map(c => (c._id || c.id) === customerId ? { ...c, loyaltyPoints: data.customer.loyaltyPoints } : c));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setActionError(err.error || 'Failed to add points');
       }
-    } catch { /* silent */ }
+    } catch (e) {
+      setActionError(e.message || 'Network error');
+    }
     setPointsModal(null);
   };
 
@@ -110,6 +121,12 @@ export default function AdminCustomers() {
           <p className="text-gray-600">{loading ? 'Loading...' : `${customers.length} customers found`}</p>
         </div>
       </div>
+      {actionError && (
+        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex justify-between items-center">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError('')} className="text-red-500 hover:text-red-700"><X size={14} /></button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {loading

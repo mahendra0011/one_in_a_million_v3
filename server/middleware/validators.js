@@ -317,13 +317,7 @@ export const vNotificationIdParam = [
   isMongoId('id', param),
 ];
 
-export const vBroadcastNotification = [
-  body('title').trim().notEmpty().withMessage('title is required').isLength({ max: 120 }),
-  body('body').trim().notEmpty().withMessage('body is required').isLength({ max: 1000 }),
-  body('type').optional().isIn(['order_status', 'offer', 'review_reminder', 'system']),
-  body('userId').optional({ checkFalsy: true }).matches(MONGO_ID).withMessage('userId must be a valid id'),
-  body('data').optional().isObject(),
-];
+
 
 // ─── CART ──────────────────────────────────────────────────────────────────────
 export const vSaveCart = [

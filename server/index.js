@@ -1415,22 +1415,6 @@ app.delete('/api/notifications', authenticate, async (req, res) => {
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
-app.post('/api/admin/notifications/broadcast', adminOnly, v.vBroadcastNotification, validate, async (req, res) => {
-  try {
-    const { title, body, type = 'offer', data = {}, userId } = req.body;
-    if (!title || !body) return res.status(400).json({ ok: false, error: 'title and body required' });
-    if (userId) {
-      const notif = await createNotification({ userId, type, title, body, data });
-      return res.status(201).json({ ok: true, sent: 1, notification: notif });
-    }
-    const users = await User.find({ role: 'user' }, '_id');
-    const docs = users.map(u => ({ userId: u._id, type, title, body, data }));
-    await Notification.insertMany(docs);
-    users.forEach(u => notifyUser(u._id.toString(), { type, title, body, data, read: false, createdAt: new Date() }));
-    res.status(201).json({ ok: true, sent: users.length });
-  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
-});
-
 app.get('/api/admin/notifications', adminOnly, async (req, res) => {
   try {
     const notifications = await AdminNotifLog.find().sort({ sentAt: -1 }).limit(100);
