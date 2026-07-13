@@ -109,14 +109,15 @@ export default function OrderDetailPage() {
 
 // Live status updates via socket
   const { trackOrder } = useSocket({ joinUser: null });
+  const orderTrackingId = order?.orderId || order?._id;
   useEffect(() => {
-    if (!order) return;
-    const unsub = trackOrder(order.orderId || order._id,
+    if (!orderTrackingId) return;
+    const unsub = trackOrder(orderTrackingId,
       payload => setOrder(prev => ({ ...prev, status: payload.status })),
       payload => setOrder(prev => ({ ...prev, deliveryBoyLocation: { lat: payload.lat, lng: payload.lng, updatedAt: payload.updatedAt } }))
     );
     return unsub;
-  }, [order, trackOrder]);
+  }, [orderTrackingId, trackOrder]);
 
   if (loading) {
     return (

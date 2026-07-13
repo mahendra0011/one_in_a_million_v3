@@ -365,7 +365,7 @@ export default function DeliveryDashboard() {
         if (isConnectedRef.current) {
           pushLocation({ orderId, lat, lng, deliveryBoyId: user?.id });
         } else {
-          try { await fetchWithTimeout(`/api/delivery/orders/${orderId}/location`, { method: 'PATCH', headers, body: JSON.stringify({ lat, lng }) }); } catch {}
+          try { await fetchWithTimeout(`/api/delivery/orders/${orderId}/location`, { method: 'PATCH', headers, credentials: 'include', body: JSON.stringify({ lat, lng }) }); } catch {}
         }
       },
       () => {},

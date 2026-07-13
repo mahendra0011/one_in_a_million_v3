@@ -97,15 +97,27 @@ export const Map = forwardRef(function Map(
   // Without this, the map is positioned once on load and never follows updates
   // (e.g. a moving delivery driver, or a newly picked destination).
   const lastCenterRef = useRef(center);
+  // Below this, movement is GPS jitter, not real driver motion — re-centering
+  // on every tick made the map feel like it never settles.
+  const MIN_RECENTER_METERS = 3;
   useEffect(() => {
     if (!mapInstance || !isLoaded) return;
     const [lng, lat] = center;
     if (typeof lng !== 'number' || typeof lat !== 'number') return;
     const [prevLng, prevLat] = lastCenterRef.current || [];
-    const moved = Math.hypot((lng - (prevLng ?? lng)), (lat - (prevLat ?? lat)));
+    if (prevLng == null || prevLat == null) {
+      lastCenterRef.current = center;
+      mapInstance.easeTo({ center: [lng, lat], duration: 600 });
+      return;
+    }
+    const R = 6371e3;
+    const toRad = (x) => (x * Math.PI) / 180;
+    const dLat = toRad(lat - prevLat);
+    const dLng = toRad(lng - prevLng);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(prevLat)) * Math.cos(toRad(lat)) * Math.sin(dLng / 2) ** 2;
+    const movedMeters = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    if (movedMeters < MIN_RECENTER_METERS) return;
     lastCenterRef.current = center;
-    // Skip no-op updates, but always follow real movement (even small GPS ticks)
-    if (moved === 0) return;
     mapInstance.easeTo({ center: [lng, lat], duration: 600 });
   }, [mapInstance, isLoaded, center[0], center[1]]);
 

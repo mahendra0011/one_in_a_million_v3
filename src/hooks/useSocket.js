@@ -145,6 +145,10 @@ export function useSocket({
       if (s) {
         if (onStatusUpdateCb) s.off('status-update', onStatusUpdateCb);
         if (onLocationCb) s.off('delivery-location-update', onLocationCb);
+        // Only leave the room once no other trackOrder() call for this
+        // same orderId is still active (e.g. multiple listeners on one page).
+        const stillTracked = pendingTracksRef.current.some(e => e.orderId === orderId);
+        if (!stillTracked) s.emit('leave-order', orderId);
       }
     };
   }, []);

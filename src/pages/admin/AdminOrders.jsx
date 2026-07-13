@@ -4,6 +4,7 @@ import { Search, RefreshCw, Printer, Filter, ChevronDown, CheckSquare, Square, X
 import { motion, AnimatePresence } from 'framer-motion';
 import { SkeletonTable } from '../../components/admin/SkeletonRow';
 import { useSocket } from '../../hooks/useSocket';
+import LiveTrackingMap from '../../components/LiveTrackingMap';
 
 const headers = { 'Content-Type': 'application/json' };
 
@@ -111,6 +112,14 @@ export default function AdminOrders() {
     onNewOrder:     (order) => setOrders(prev => [order, ...prev]),
     onOrderUpdated: (order) => setOrders(prev => prev.map(o =>
       (o._id === order._id || o.orderId === order.orderId) ? order : o
+    )),
+    // Backend already broadcasts this to the admin room on every GPS tick
+    // (see notifyAdmin('delivery-location-update', ...) in server/index.js) —
+    // it just wasn't wired up here before, so live positions never reached the UI.
+    onDeliveryLocationUpdate: ({ orderId, lat, lng, updatedAt }) => setOrders(prev => prev.map(o =>
+      (o.orderId === orderId || o._id === orderId)
+        ? { ...o, deliveryBoyLocation: { lat, lng, updatedAt } }
+        : o
     )),
   });
 
@@ -420,6 +429,18 @@ export default function AdminOrders() {
                               {order.paymentMethod && <p>Payment: {order.paymentMethod}</p>}
                             </div>
                           </div>
+                          {order.status === 'out_for_delivery' && order.customerLocation?.lat && (
+                            <div className="mt-4">
+                              <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">Live Tracking</p>
+                              <LiveTrackingMap
+                                customerLocation={order.customerLocation}
+                                driverLocation={order.deliveryBoyLocation}
+                                height={220}
+                                showControls={true}
+                                viewMode="user"
+                              />
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}

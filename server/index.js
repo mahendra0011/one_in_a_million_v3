@@ -212,6 +212,10 @@ io.on('connection', (socket) => {
     if (!orderId) return;
     socket.join(`order-${orderId}`);
   });
+  socket.on('leave-order', (orderId) => {
+    if (!orderId) return;
+    socket.leave(`order-${orderId}`);
+  });
   socket.on('update-location', async ({ orderId, lat, lng, deliveryBoyId } = {}) => {
     if (!orderId || lat == null || lng == null) return;
     try {
