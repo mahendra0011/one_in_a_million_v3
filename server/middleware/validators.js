@@ -335,7 +335,7 @@ export const vUpdateSettings = [
   body('address').optional().trim().isLength({ min: 1, max: 300 }),
   body('phone').optional().trim().matches(/^\+?[0-9]{7,15}$/).withMessage('Enter a valid phone number'),
   body('openTime').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('openTime must be HH:mm'),
-  body('closeTime').optional().matches(/^([01]\d|2[0-3]):([0-5\d)$/).withMessage('closeTime must be HH:mm'),
+  body('closeTime').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('closeTime must be HH:mm'),
   body('deliveryRadius').optional().isFloat({ min: 0 }).withMessage('deliveryRadius must be a positive number'),
   body('deliveryCharge').optional().isFloat({ min: 0 }).withMessage('deliveryCharge must be a positive number'),
   body('minOrderAmount').optional().isFloat({ min: 0 }).withMessage('minOrderAmount must be a positive number'),
