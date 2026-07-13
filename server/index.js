@@ -1027,14 +1027,22 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
       if (!customerLocation.landmark?.trim()) return res.status(400).json({ ok: false, error: 'Flat / house number / landmark details required' });
     }
     // Check if authenticated user is banned
+    let user = null;
     if (req.user?.id) {
-      const user = await User.findById(req.user.id);
+      user = await User.findById(req.user.id);
       if (user?.isBanned) {
         return res.status(403).json({ ok: false, error: 'Your account has been banned' });
       }
     }
-    const order = await Order.create({ userId: req.user.id, ...req.body, orderId, customerLocation });
+    // Clamp redeemed points server-side to what the user actually has — never trust the client value outright.
+    const pointsRedeemed = user && req.body.pointsRedeemed > 0
+      ? Math.min(Math.floor(req.body.pointsRedeemed), user.loyaltyPoints || 0)
+      : 0;
+    const order = await Order.create({ userId: req.user.id, ...req.body, pointsRedeemed, orderId, customerLocation });
     notifyAdmin('new-order', order);
+    if (pointsRedeemed > 0) {
+      await User.findByIdAndUpdate(user._id, { $inc: { loyaltyPoints: -pointsRedeemed } });
+    }
     // Note: loyalty points are awarded once the order is actually delivered (see awardLoyaltyPointsOnce),
     // not at placement time — awarding here caused a double-award bug and rewarded cancelled orders.
     if (order.userId) {
@@ -1217,6 +1225,19 @@ app.post('/api/reservations', reservationLimiter, v.vCreateReservation, validate
     }
     res.status(201).json({ ok: true, reservation });
   } catch (err) { res.status(400).json({ ok: false, error: err.message }); }
+});
+
+// Customer-scoped reservations list — matched by the logged-in user's email, since
+// Reservation isn't linked by userId (guests can also book without an account).
+// AccountPage's "My Reservations" was previously calling the adminOnly route below,
+// which always returned 403 for normal customers and was silently swallowed.
+app.get('/api/reservations/my', authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('email');
+    if (!user?.email) return res.json({ ok: true, reservations: [] });
+    const reservations = await Reservation.find({ email: user.email }).sort({ date: -1, time: -1 });
+    res.json({ ok: true, reservations });
+  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
 app.get('/api/reservations', adminOnly, v.vReservationsQuery, validate, async (req, res) => {
@@ -2049,23 +2070,25 @@ async function sendPushToDelivery(deliveryBoyId, payload) {
 }
 
 // ─── CONTACT ───────────────────────────────────────────────────────────────────────
-app.post('/api/contact', async (req, res) => {
+// NOTE: this route used to be defined twice — a duplicate copy also existed after the
+// 404 handler below, which meant it was dead code (Express uses the first match) and
+// was never reached. That duplicate has been removed and this route consolidated to:
+// (a) actually validate input via vContactForm, and
+// (b) populate AdminNotifLog with fields that match its real schema (target must be
+//     'all'/'single' and 'message' is required — the old code sent neither correctly,
+//     so every submission threw a Mongoose validation error and returned 500).
+app.post('/api/contact', v.vContactForm, validate, async (req, res) => {
   try {
     const { name, email, phone, subject, message } = req.body;
-    if (!name || !email || !subject || !message) {
-      return res.status(400).json({ ok: false, error: 'Name, email, subject and message required' });
-    }
-    // Create admin notification for the contact message
-    const AdminNotif = (await import('./models/AdminNotifLog.js')).default;
-    await AdminNotif.create({
-      type: 'contact_message',
+    await AdminNotifLog.create({
+      target: 'all',
+      userQuery: `${name} <${email}>${phone ? ' | ' + phone : ''}`,
       title: `📧 ${subject}`,
-      body: `${name} (${email}${phone ? ', ' + phone : ''}): ${message.slice(0, 500)}`,
-      data: { name, email, phone, subject, message },
+      message,
+      type: 'contact',
+      sentCount: 0,
     });
-    // Emit real-time event to admin room
     notifyAdmin('contact-message', { name, email, phone, subject, message });
-    // Send email to admin (if email service configured)
     if (process.env.ADMIN_CONTACT_EMAIL) {
       const { sendEmailOtp } = await import('./services/otp.service.js');
       await sendEmailOtp({
@@ -2076,30 +2099,13 @@ app.post('/api/contact', async (req, res) => {
         extra: `Email: ${email}\nPhone: ${phone || 'N/A'}\nSubject: ${subject}\nMessage: ${message}`,
       }).catch(() => {});
     }
-    res.json({ ok: true, message: 'Message sent successfully' });
+    res.status(201).json({ ok: true, message: 'Message received! We will get back to you soon.' });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
 // ─── 404 HANDLER ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ ok: false, error: `Route not found: ${req.method} ${req.path}` });
-});
-
-// ─── CONTACT FORM ──────────────────────────────────────────────────────────────
-app.post('/api/contact', v.vContactForm, validate, async (req, res) => {
-  try {
-    const { name, email, phone, subject, message } = req.body;
-    // Admin notification create karo
-    await AdminNotifLog.create({
-      target: 'contact',
-      userQuery: `${name} <${email}> | ${phone || '—'}`,
-      title: subject,
-      message,
-      type: 'contact',
-      sentCount: 0
-    });
-    res.status(201).json({ ok: true, message: 'Message received! We will get back to you soon.' });
-  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
 // ─── GLOBAL ERROR HANDLER ───────────────────────────────────────────────────────

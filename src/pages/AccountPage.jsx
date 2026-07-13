@@ -961,7 +961,7 @@ function ReservationsList() {
   const fetchReservations = async () => {
     setLoading(true);
     try {
-      const res = await fetchWithTimeout('/api/reservations', { credentials: 'include' });
+      const res = await fetchWithTimeout('/api/reservations/my', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setReservations(data.reservations || []);
