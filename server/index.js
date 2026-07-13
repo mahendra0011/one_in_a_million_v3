@@ -871,9 +871,9 @@ app.get('/api/delivery/earnings', deliveryOnly, async (req, res) => {
 // ─── DELIVERY BOY: PROFILE ────────────────────────────────────────────────────
 app.get('/api/delivery/profile', deliveryOnly, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
+    const user = await User.findById(req.user.id).select('-password -loginAttempts -lockUntil');
     res.json({ ok: true, profile: user });
-  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+  } catch (err) { res.status(500).json({ ok: false, error: 'Failed to fetch profile' }); }
 });
 
 app.patch('/api/delivery/profile', deliveryOnly, async (req, res) => {
@@ -881,9 +881,9 @@ app.patch('/api/delivery/profile', deliveryOnly, async (req, res) => {
     const allowed = ['name', 'phone', 'vehicleType', 'vehicleNumber', 'profilePhoto', 'unavailableDays', 'availabilityNote'];
     const update = {};
     for (const key of allowed) { if (req.body[key] !== undefined) update[key] = req.body[key]; }
-    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true }).select('-password');
+    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true }).select('-password -loginAttempts -lockUntil');
     res.json({ ok: true, profile: user });
-  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+  } catch (err) { res.status(500).json({ ok: false, error: 'Failed to update profile' }); }
 });
 
 app.patch('/api/delivery/change-password', deliveryOnly, async (req, res) => {
@@ -1211,7 +1211,7 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
       User.findById(order.userId).then(user => { if (user) sendOrderConfirmation({ order, userEmail: user.email, userName: user.name, userPhone: user.phone }).catch(() => {}); }).catch(() => {});
     }
     res.status(201).json({ ok: true, orderId: order.orderId, _id: order._id });
-  } catch (err) { res.status(400).json({ ok: false, error: err.message }); }
+  } catch (err) { res.status(400).json({ ok: false, error: 'Order creation failed' }); }
 });
 
 app.get('/api/orders', adminOnly, v.vOrdersListQuery, validate, async (req, res) => {
