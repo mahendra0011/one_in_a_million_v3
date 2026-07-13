@@ -4,10 +4,14 @@ import { Navigate } from 'react-router-dom';
 
 // Cookie-based delivery guard: verifies session with server instead of checking localStorage token
 export default function DeliveryGuard({ children }) {
-  const [status, setStatus] = useState('loading'); // 'loading' | 'ok' | 'set-password' | 'fail'
-
-  // Check bim_user localStorage for faster initial render
+  // Check bim_user localStorage for a faster initial render, then verify with
+  // the server below.
   const storedUser = (() => { try { return JSON.parse(localStorage.getItem('bim_user') || 'null'); } catch { return null; }})();
+
+  const initialStatus = storedUser?.role === 'delivery_boy'
+    ? (storedUser.mustSetPassword ? 'set-password' : 'ok')
+    : 'loading';
+  const [status, setStatus] = useState(initialStatus); // 'loading' | 'ok' | 'set-password' | 'fail'
 
   useEffect(() => {
     fetchWithTimeout('/api/auth/me', { credentials: 'include' })
@@ -25,16 +29,6 @@ export default function DeliveryGuard({ children }) {
       })
       .catch(() => setStatus('fail'));
   }, []);
-
-  useEffect(() => {
-    if (storedUser?.role === 'delivery_boy') {
-      if (storedUser.mustSetPassword) {
-        setStatus('set-password');
-      } else {
-        setStatus('ok');
-      }
-    }
-  }, [storedUser]);
 
   if (status === 'loading') {
     return (

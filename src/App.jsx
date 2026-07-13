@@ -191,6 +191,7 @@ export default function App() {
       {!hideNav && <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />}
       {!hideNav && (
         <Customizer
+          key={`${custOpen}-${custProductId}`}
           open={custOpen}
           onClose={() => setCustOpen(false)}
           productId={custProductId}

@@ -37,19 +37,14 @@ function dismiss() {
 
 export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showIos, setShowIos] = useState(false);
-  const [visible, setVisible] = useState(false);
+  // iOS eligibility only depends on synchronous browser APIs, so it can be
+  // computed directly as initial state instead of inside an effect.
+  const [showIos] = useState(() => !isInStandaloneMode() && !isDismissed() && isIos());
+  const [visible, setVisible] = useState(() => !isInStandaloneMode() && !isDismissed() && isIos());
 
   useEffect(() => {
-    // Don't show if already installed or recently dismissed
-    if (isInStandaloneMode() || isDismissed()) return;
-
-    // iOS — show manual instructions
-    if (isIos()) {
-      setShowIos(true);
-      setVisible(true);
-      return;
-    }
+    // iOS case is already handled by the initial state above.
+    if (isInStandaloneMode() || isDismissed() || isIos()) return;
 
     // Android/Chrome — listen for beforeinstallprompt
     const handler = (e) => {

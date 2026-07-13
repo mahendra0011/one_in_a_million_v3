@@ -34,10 +34,15 @@ export default function Navbar({ cartCount = 0, onOpenCart }) {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  useEffect(() => {
+  // Close mobile/more menus on route change. Adjusted during render (rather
+  // than in an effect) per React's guidance for state that depends on a
+  // changing prop: https://react.dev/learn/you-might-not-need-an-effect
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setMobileOpen(false);
     setMoreOpen(false);
-  }, [pathname]);
+  }
 
   const isActive = (href) => pathname === href;
 

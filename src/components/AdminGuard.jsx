@@ -4,8 +4,13 @@ import { Navigate, useLocation } from 'react-router-dom';
 
 // Cookie-based admin guard: verifies session with server instead of checking localStorage token
 export default function AdminGuard({ children }) {
-  const [status, setStatus] = useState('loading'); // 'loading' | 'ok' | 'fail'
   const location = useLocation();
+
+  // Check bim_user localStorage synchronously for a faster initial render,
+  // then verify with the server below.
+  const storedUser = (() => { try { return JSON.parse(localStorage.getItem('bim_user') || 'null'); } catch { return null; }})();
+
+  const [status, setStatus] = useState(storedUser?.role === 'admin' ? 'ok' : 'loading'); // 'loading' | 'ok' | 'fail'
 
   useEffect(() => {
     fetchWithTimeout('/api/auth/me', { credentials: 'include' })
@@ -19,13 +24,6 @@ export default function AdminGuard({ children }) {
       })
       .catch(() => setStatus('fail'));
   }, []);
-
-  // Also check bim_user localStorage for faster initial render
-  const storedUser = (() => { try { return JSON.parse(localStorage.getItem('bim_user') || 'null'); } catch { return null; }})();
-
-  useEffect(() => {
-    if (storedUser?.role === 'admin') setStatus('ok');
-  }, [storedUser]);
 
   if (status === 'loading') {
     return (

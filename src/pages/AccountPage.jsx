@@ -71,8 +71,17 @@ function OtpInput({ value, onChange, disabled }) {
 // ─── COUNTDOWN TIMER ─────────────────────────────────────────────────────────
 function Countdown({ seconds, onEnd }) {
   const [left, setLeft] = useState(seconds);
-  useEffect(() => {
+
+  // Reset the countdown whenever `seconds` changes (e.g. a fresh OTP resend
+  // starts a new cooldown period). Adjusted during render per React's
+  // guidance for state that depends on a changing prop.
+  const [trackedSeconds, setTrackedSeconds] = useState(seconds);
+  if (seconds !== trackedSeconds) {
+    setTrackedSeconds(seconds);
     setLeft(seconds);
+  }
+
+  useEffect(() => {
     if (seconds <= 0) return;
     const t = setInterval(() => setLeft(p => (p <= 1 ? (clearInterval(t), 0) : p - 1)), 1000);
     return () => clearInterval(t);

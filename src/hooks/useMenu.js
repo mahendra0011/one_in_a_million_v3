@@ -27,7 +27,7 @@ function buildQuery(filters = {}) {
 
 export function useMenu(filters = {}) {
   const [products, setProducts] = useState(staticProducts); // immediate paint, replaced once API responds
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [usingFallback, setUsingFallback] = useState(false);
   const hasLoadedOnce = useRef(false);
@@ -35,9 +35,17 @@ export function useMenu(filters = {}) {
   // Stable string key so effects don't refire on a new object reference each render
   const filterKey = buildQuery(filters);
 
-  const fetchMenu = useCallback(async () => {
+  // Reflect a fresh loading state as soon as the filters change. Adjusted
+  // during render (not in an effect) per React's guidance for state that
+  // depends on a changing value: https://react.dev/learn/you-might-not-need-an-effect
+  const [trackedFilterKey, setTrackedFilterKey] = useState(filterKey);
+  if (filterKey !== trackedFilterKey) {
+    setTrackedFilterKey(filterKey);
     setLoading(true);
     setError(null);
+  }
+
+  const fetchMenu = useCallback(async () => {
     try {
       const qs = filterKey;
       const res = await retryFetchWithTimeout(`/api/menu${qs ? `?${qs}` : ''}`);
@@ -79,11 +87,10 @@ const STATIC_CATEGORIES = ['burgers', 'sides', 'drinks', 'combos'];
 
 export function useMenuCategories() {
   const [categories, setCategories] = useState(STATIC_CATEGORIES);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     retryFetchWithTimeout('/api/menu/categories')
       .then(res => res.json())
       .then(data => {

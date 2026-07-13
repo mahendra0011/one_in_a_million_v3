@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X, Minus, Plus, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMenu } from '../hooks/useMenu';
@@ -11,15 +11,6 @@ export default function Customizer({ open, onClose, productId, onAddCustomized }
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [spice, setSpice] = useState(3);
   const [notes, setNotes] = useState('');
-
-  useEffect(() => {
-    if (open) {
-      setSize(sizeOptions?.[0] ?? null);
-      setSelectedExtras([]);
-      setSpice(3);
-      setNotes('');
-    }
-  }, [open, productId]);
 
   if (!product) return null;
 
