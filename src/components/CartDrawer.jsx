@@ -1,6 +1,6 @@
 import { X, Minus, Plus, Trash2, ShoppingBag, Tag, ArrowRight, MapPin, Loader2 } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
-import { updateQty, updateQtyImmediate, removeItem, clearCart, applyCouponResult, setCouponError, clearCoupon, setFulfillment, setDeliveryAddress } from '../store/slices/cartSlice';
+import { updateQty, updateQtyImmediate, removeItem, clearCart, applyCouponResult, setCouponError, clearCoupon, setFulfillment, setDeliveryAddress, setDeliveryDetails } from '../store/slices/cartSlice';
 import { fetchWithTimeout, retryFetchWithTimeout, money } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -22,7 +22,6 @@ export default function CartDrawer({ open, onClose }) {
   const items = cart.items;
   const [couponInput, setCouponInput] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
-  const [addressInput, setAddressInput] = useState(cart.deliveryAddress || '');
 
   // Step 23 — fetch delivery charge & min order from settings
   const [deliveryCharge, setDeliveryCharge] = useState(39);
@@ -83,12 +82,7 @@ export default function CartDrawer({ open, onClose }) {
     setCouponInput('');
   };
 
-  const handleAddressBlur = () => {
-    dispatch(setDeliveryAddress({ address: addressInput, coords: cart.deliveryCoords }));
-  };
-
   const handleLocationChange = (loc) => {
-    setAddressInput(loc.address);
     dispatch(setDeliveryAddress({ address: loc.address, coords: { lat: loc.lat, lng: loc.lng } }));
   };
 
@@ -164,9 +158,26 @@ export default function CartDrawer({ open, onClose }) {
                   className="px-5 pb-2 overflow-hidden"
                 >
                   <LocationPicker
-                    initialAddress={addressInput}
+                    initialAddress={cart.deliveryAddress}
                     onLocationChange={handleLocationChange}
                   />
+
+                  <div className="mt-3 space-y-1">
+                    <label className="text-xs font-bold text-[#A39791] uppercase tracking-wider flex items-center gap-1.5">
+                      <MapPin size={12} className="text-[#F07D14]" /> Flat / House No. / Landmark <span className="text-red-400">*</span>
+                    </label>
+                    <textarea
+                      value={cart.deliveryDetails || ''}
+                      onChange={(e) => dispatch(setDeliveryDetails(e.target.value))}
+                      rows={2}
+                      required
+                      placeholder="e.g. Flat 302, Sunrise Apartments, near City Mall"
+                      className="w-full px-3 py-2.5 rounded-lg border border-white/10 text-sm bg-[#0A0604] text-white
+                        focus:outline-none focus:border-[#F07D14] focus:ring-1 focus:ring-[#F07D14]/30 placeholder:text-[#8E827B]
+                        transition-all resize-none"
+                    />
+                    <p className="text-[10px] text-[#8E827B]">Required — helps the delivery boy find your exact door.</p>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -313,10 +324,10 @@ export default function CartDrawer({ open, onClose }) {
                   </div>
                 </div>
 
-                {cart.fulfillment === 'delivery' && (!cart.deliveryAddress || !cart.deliveryCoords?.lat || !cart.deliveryCoords?.lng) ? (
+                {cart.fulfillment === 'delivery' && (!cart.deliveryAddress || !cart.deliveryCoords?.lat || !cart.deliveryCoords?.lng || !cart.deliveryDetails?.trim()) ? (
                   <button
                     disabled
-                    title="Please enter delivery address and use 'My Location' button to pin GPS coordinates"
+                    title="Please pin your GPS location AND fill in flat/house/landmark details"
                     className="w-full bg-[#4A3F38] text-[#8E827B] font-bold py-3 rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     <MapPin size={18} />

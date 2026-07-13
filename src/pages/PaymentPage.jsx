@@ -33,10 +33,10 @@ export default function PaymentPage() {
     if (!paid && items.length === 0) {
       navigate('/menu', { replace: true });
     }
-    if (!paid && cart.fulfillment === 'delivery' && (!cart.deliveryAddress || !cart.deliveryCoords?.lat || !cart.deliveryCoords?.lng)) {
+    if (!paid && cart.fulfillment === 'delivery' && (!cart.deliveryAddress || !cart.deliveryCoords?.lat || !cart.deliveryCoords?.lng || !cart.deliveryDetails?.trim())) {
       navigate('/menu', { replace: true });
     }
-  }, [items.length, paid, navigate, cart.fulfillment, cart.deliveryAddress, cart.deliveryCoords]);
+  }, [items.length, paid, navigate, cart.fulfillment, cart.deliveryAddress, cart.deliveryCoords, cart.deliveryDetails]);
 
   // Step 23 — fetch delivery charge from settings
   const [deliveryCharge, setDeliveryCharge] = useState(39);
@@ -72,6 +72,7 @@ export default function PaymentPage() {
         phone: user?.phone || '',
         deliveryAddress: cart.deliveryAddress || '',
         deliveryCoords: cart.deliveryCoords || null,
+        deliveryDetails: cart.deliveryDetails || '',
       },
       payment: method,
       paymentStatus: method === 'cod' ? 'pending' : 'paid',
@@ -359,6 +360,7 @@ export default function PaymentPage() {
                   <div>
                     <p className="text-xs font-bold text-[#A39791] mb-0.5">Delivering to</p>
                     <p className="text-xs text-white leading-relaxed">{cart.deliveryAddress}</p>
+                    {cart.deliveryDetails && <p className="text-xs text-[#A39791] mt-0.5">{cart.deliveryDetails}</p>}
                     {cart.deliveryCoords && <p className="text-xs text-green-400 mt-0.5">GPS pinned ✓</p>}
                   </div>
                 </div>

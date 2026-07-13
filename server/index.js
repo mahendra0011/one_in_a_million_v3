@@ -1016,10 +1016,12 @@ app.post('/api/orders', orderLimiter, v.vCreateOrder, validate, async (req, res)
     const orderId = 'BIM-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
     const customerLocation = {};
     if (req.body.customer?.deliveryAddress) customerLocation.address = req.body.customer.deliveryAddress;
+    if (req.body.customer?.deliveryDetails) customerLocation.landmark = req.body.customer.deliveryDetails;
     if (req.body.customer?.deliveryCoords) { customerLocation.lat = req.body.customer.deliveryCoords.lat; customerLocation.lng = req.body.customer.deliveryCoords.lng; }
     if (req.body.fulfillment === 'delivery') {
       if (!customerLocation.address) return res.status(400).json({ ok: false, error: 'Delivery address required' });
       if (customerLocation.lat == null || customerLocation.lng == null) return res.status(400).json({ ok: false, error: 'Delivery location coordinates required — please use "My Location" button or select from search results' });
+      if (!customerLocation.landmark?.trim()) return res.status(400).json({ ok: false, error: 'Flat / house number / landmark details required' });
     }
     const order = await Order.create({ ...req.body, orderId, customerLocation });
     notifyAdmin('new-order', order);

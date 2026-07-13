@@ -312,6 +312,9 @@ export default function DeliveryOrderDetail() {
                 <p className="text-[#A39791] text-sm leading-relaxed">
                   {order.customer?.address || order.customerLocation?.address}
                 </p>
+                {order.customerLocation?.landmark && (
+                  <p className="text-white text-sm font-semibold mt-1">🏠 {order.customerLocation.landmark}</p>
+                )}
               </div>
             </div>
           )}

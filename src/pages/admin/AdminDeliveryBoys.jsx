@@ -157,9 +157,16 @@ export default function AdminDeliveryBoys() {
                     </td>
                     <td className="px-6 py-4">
                       {boy.currentLocation?.lat ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                        <a
+                          href={`https://www.google.com/maps?q=${boy.currentLocation.lat},${boy.currentLocation.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-[#F07D14] hover:underline"
+                          title="Open in Google Maps"
+                        >
                           <MapPin size={12} /> {boy.currentLocation.lat.toFixed(4)}, {boy.currentLocation.lng.toFixed(4)}
-                        </span>
+                          <ExternalLink size={10} />
+                        </a>
                       ) : (
                         <span className="text-xs text-gray-400">—</span>
                       )}

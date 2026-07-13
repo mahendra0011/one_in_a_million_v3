@@ -10,13 +10,13 @@ const loadCart = () => {
     const parsed = saved ? JSON.parse(saved) : null;
     return {
       items: [], coupon: '', couponDiscount: 0, couponError: '',
-      fulfillment: 'delivery', deliveryAddress: '', deliveryCoords: null,
+      fulfillment: 'delivery', deliveryAddress: '', deliveryCoords: null, deliveryDetails: '',
       syncing: false,
       ...parsed,
       syncing: false, // never persist syncing flag
     };
   } catch {
-    return { items: [], coupon: '', couponDiscount: 0, couponError: '', fulfillment: 'delivery', deliveryAddress: '', deliveryCoords: null, syncing: false };
+    return { items: [], coupon: '', couponDiscount: 0, couponError: '', fulfillment: 'delivery', deliveryAddress: '', deliveryCoords: null, deliveryDetails: '', syncing: false };
   }
 };
 
@@ -122,6 +122,7 @@ const cartSlice = createSlice({
       state.couponError = '';
       state.deliveryAddress = '';
       state.deliveryCoords = null;
+      state.deliveryDetails = '';
       saveCartToLS(state);
     },
     // Step 18 — coupon
@@ -149,6 +150,10 @@ const cartSlice = createSlice({
       const { address, coords } = action.payload;
       state.deliveryAddress = address;
       state.deliveryCoords = coords || null;
+      saveCartToLS(state);
+    },
+    setDeliveryDetails(state, action) {
+      state.deliveryDetails = action.payload;
       saveCartToLS(state);
     },
     // Merge server cart into local (prefer server items if non-empty, else keep local)
@@ -206,6 +211,6 @@ const cartSlice = createSlice({
 export const {
   addItem, removeItem, updateQty, updateQtyImmediate, setQty, clearCart,
   applyCouponResult, setCouponError, clearCoupon,
-  setFulfillment, setDeliveryAddress, mergeServerCart,
+  setFulfillment, setDeliveryAddress, setDeliveryDetails, mergeServerCart,
 } = cartSlice.actions;
 export default cartSlice.reducer;

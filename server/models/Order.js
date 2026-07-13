@@ -19,6 +19,7 @@ const orderSchema = new mongoose.Schema({
     lat: { type: Number, default: null },
     lng: { type: Number, default: null },
     address: { type: String, default: '' },
+    landmark: { type: String, default: '' },
   },
   deliveryBoyLocation: {
     lat: { type: Number, default: null },
