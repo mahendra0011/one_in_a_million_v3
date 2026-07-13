@@ -1,4 +1,4 @@
-import { fetchWithTimeout } from '../../lib/utils';
+import { fetchWithTimeout, straightLineRoute } from '../../lib/utils';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LocateFixed, MapPin, Navigation, Package, Timer, Bike, ShoppingBag, X, AlertTriangle, BellRing, Radio, ChevronDown, Phone, RefreshCw, CheckCircle, Clock, Star, Bell, User, LogOut, ChevronRight, Camera, Loader2, Trophy, DollarSign, TrendingUp, Award } from 'lucide-react';
@@ -305,8 +305,13 @@ export default function DeliveryDashboard() {
       const data = await safeJson(res);
       if (data.ok && data.route?.routes?.[0]?.geometry?.coordinates) {
         setRouteGeometry(data.route.routes[0].geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] })));
+      } else {
+        setRouteGeometry(straightLineRoute(start, end));
       }
-    } catch (err) { console.error('Failed to fetch route:', err); }
+    } catch (err) {
+      console.error('Failed to fetch route:', err);
+      setRouteGeometry(straightLineRoute(start, end));
+    }
     setRouteLoading(false);
   }, [headers]);
 

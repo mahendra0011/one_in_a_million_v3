@@ -1,5 +1,5 @@
 import SEOHead from '../components/SEOHead';
-import { fetchWithTimeout, distanceMeters } from '../lib/utils';
+import { fetchWithTimeout, distanceMeters, straightLineRoute } from '../lib/utils';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Package, Clock, MapPin, Navigation, Star, ChevronRight, Truck, Radio, ExternalLink, Loader2 } from 'lucide-react';
@@ -63,9 +63,20 @@ export default function OrderDetailPage() {
       const data = await res.json();
       if (data.ok && data.route?.routes?.[0]?.geometry?.coordinates) {
         setRouteGeometry(data.route.routes[0].geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] })));
+      } else {
+        // Routing service unavailable (e.g. ORS_API_KEY not configured on the
+        // server) — fall back to a straight line so the map still shows a path.
+        setRouteGeometry(straightLineRoute(
+          { lat: o.deliveryBoyLocation.lat, lng: o.deliveryBoyLocation.lng },
+          { lat: o.customerLocation.lat, lng: o.customerLocation.lng }
+        ));
       }
     } catch (err) {
       console.error('Failed to fetch route:', err);
+      setRouteGeometry(straightLineRoute(
+        { lat: o.deliveryBoyLocation.lat, lng: o.deliveryBoyLocation.lng },
+        { lat: o.customerLocation.lat, lng: o.customerLocation.lng }
+      ));
     }
     setRouteLoading(false);
   }, []);

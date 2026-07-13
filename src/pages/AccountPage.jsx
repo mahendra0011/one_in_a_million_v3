@@ -1,5 +1,5 @@
 import SEOHead from '../components/SEOHead';
-import { fetchWithTimeout, distanceMeters } from '../lib/utils';
+import { fetchWithTimeout, distanceMeters, straightLineRoute } from '../lib/utils';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
@@ -494,9 +494,18 @@ function TrackDelivery({ order }) {
       const data = await res.json();
       if (data.ok && data.route?.routes?.[0]?.geometry?.coordinates) {
         setRouteGeometry(data.route.routes[0].geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] })));
+      } else {
+        setRouteGeometry(straightLineRoute(
+          { lat: o.deliveryBoyLocation.lat, lng: o.deliveryBoyLocation.lng },
+          { lat: o.customerLocation.lat, lng: o.customerLocation.lng }
+        ));
       }
     } catch (err) {
       console.error('Failed to fetch route:', err);
+      setRouteGeometry(straightLineRoute(
+        { lat: o.deliveryBoyLocation.lat, lng: o.deliveryBoyLocation.lng },
+        { lat: o.customerLocation.lat, lng: o.customerLocation.lng }
+      ));
     }
     setRouteLoading(false);
   }, []);

@@ -73,6 +73,24 @@ export function distanceMeters(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Straight-line fallback route between two points, used whenever the ORS
+// directions API is unavailable (no ORS_API_KEY configured on the server,
+// rate-limited, or a network error) so the map always shows *some* path
+// instead of silently rendering nothing. Interpolates a few midpoints so
+// the line isn't a single raw segment.
+export function straightLineRoute(start, end, steps = 8) {
+  if (!start?.lat || !start?.lng || !end?.lat || !end?.lng) return [];
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    pts.push({
+      lat: start.lat + (end.lat - start.lat) * t,
+      lng: start.lng + (end.lng - start.lng) * t,
+    });
+  }
+  return pts;
+}
+
 export function debounce(fn, ms = 300) {
   let timer;
   return (...args) => {

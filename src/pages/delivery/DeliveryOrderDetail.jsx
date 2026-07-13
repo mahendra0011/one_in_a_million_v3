@@ -1,4 +1,4 @@
-import { fetchWithTimeout, distanceMeters } from '../../lib/utils';
+import { fetchWithTimeout, distanceMeters, straightLineRoute } from '../../lib/utils';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -85,8 +85,13 @@ export default function DeliveryOrderDetail() {
       const data = await res.json();
       if (data.ok && data.route?.routes?.[0]?.geometry?.coordinates) {
         setRouteGeometry(data.route.routes[0].geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] })));
+      } else {
+        setRouteGeometry(straightLineRoute(start, end));
       }
-    } catch (err) { console.error('Failed to fetch route:', err); }
+    } catch (err) {
+      console.error('Failed to fetch route:', err);
+      setRouteGeometry(straightLineRoute(start, end));
+    }
     setRouteLoading(false);
   }, []);
 

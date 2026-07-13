@@ -93,6 +93,7 @@ export default function LiveTrackingMap({
   showLocate = false,
   viewMode = 'user',
   onMarkDestination,
+  onUseMyLocation,
 }) {
   const [myLocation, setMyLocation] = useState(null);
   
@@ -137,10 +138,16 @@ export default function LiveTrackingMap({
     return [78.5, 23.5];
   }, [customerLocation, driverLocation, restaurantLocation, myLocation]);
 
-  // Get user's current location for user view
+  // Get the viewer's own current location — both the customer dashboard and
+  // the delivery-boy dashboard need this to show a "my location" pin
+  // independent of whatever location the backend has last recorded for
+  // them, so it isn't gated by viewMode anymore.
+  const onUseMyLocationRef = useRef(onUseMyLocation);
+  useEffect(() => { onUseMyLocationRef.current = onUseMyLocation; });
+
   useEffect(() => {
-    if (viewMode !== 'user' || !navigator.geolocation) return;
-    
+    if (!navigator.geolocation) return;
+
     const getLocation = () => {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -150,11 +157,11 @@ export default function LiveTrackingMap({
         { enableHighAccuracy: true, maximumAge: 30000 }
       );
     };
-    
+
     getLocation();
     const interval = setInterval(getLocation, 45000);
     return () => clearInterval(interval);
-  }, [viewMode]);
+  }, []);
 
   return (
     <div style={{ height, position: 'relative' }} className="rounded-2xl overflow-hidden border border-white/10 bg-[#0A0604]">
@@ -166,7 +173,11 @@ export default function LiveTrackingMap({
             showCompass
             showLocate={showLocate}
             showFullscreen
-            onLocate={(c) => setMyLocation({ lat: c.latitude, lng: c.longitude })}
+            onLocate={(c) => {
+              const loc = { lat: c.latitude, lng: c.longitude };
+              setMyLocation(loc);
+              onUseMyLocationRef.current?.(loc);
+            }}
           />
         )}
 
@@ -221,10 +232,15 @@ export default function LiveTrackingMap({
           </MapMarker>
         )}
 
-        {driverLocation?.lat && <DriverMarker location={driverLocation} viewMode={viewMode} />}
-        
-        {/* Current location marker - shows user's own live location, independent of destination pin */}
-        {viewMode === 'user' && myLocation && (
+        {/* Delivery boy marker (🛵) — only shown on the customer's map. On the
+            delivery boy's own map this would just duplicate the "My Location"
+            marker below (both come from the same GPS), so it's skipped there. */}
+        {driverLocation?.lat && viewMode === 'user' && <DriverMarker location={driverLocation} viewMode={viewMode} />}
+
+        {/* Current location marker — shows the viewer's own live GPS position,
+            on both the user dashboard and the delivery-boy dashboard,
+            independent of whatever the destination/driver pins show. */}
+        {myLocation && (
           <MapMarker longitude={myLocation.lng} latitude={myLocation.lat}>
             <MarkerContent>
               <div className="w-10 h-10 bg-green-500 border-3 border-white rounded-full flex items-center justify-center shadow-xl shadow-green-500/40">
