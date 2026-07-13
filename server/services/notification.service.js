@@ -143,17 +143,17 @@ export async function sendReviewReminder({ orderId, userEmail, userName }) {
 export async function sendReservationConfirmation({ name, email, phone, date, time, guests, location }) {
   const LOCATIONS = ['Mall Road, Civil Lines', 'Wright Town'];
   const html = baseLayout(`
-    <h2 style="color:#0A0604;margin:0 0 4px;">📅 Table Reserved!</h2>
-    <p style="color:#555;">Hi <strong>${name || 'there'}</strong>, your table has been confirmed.</p>
+    <h2 style="color:#0A0604;margin:0 0 4px;">📅 Reservation Received!</h2>
+    <p style="color:#555;">Hi <strong>${name || 'there'}</strong>, we've received your table request and it's <strong>pending confirmation</strong> from our team.</p>
     <table style="width:100%;margin:16px 0;">
       <tr><td style="padding:4px;color:#888;">Date:</td><td style="padding:4px;font-weight:600;">${date}</td></tr>
       <tr><td style="padding:4px;color:#888;">Time:</td><td style="padding:4px;font-weight:600;">${time}</td></tr>
       <tr><td style="padding:4px;color:#888;">Guests:</td><td style="padding:4px;font-weight:600;">${guests}</td></tr>
       <tr><td style="padding:4px;color:#888;">Location:</td><td style="padding:4px;font-weight:600;">${LOCATIONS.includes(location) ? location : 'Mall Road, Civil Lines'}</td></tr>
     </table>
-    <p style="color:#777;font-size:13px;">Please arrive 5 minutes early. Call us at <a href="tel:+919967412613" style="color:#F07D14;">+91 9967 412613</a> for changes.</p>
+    <p style="color:#777;font-size:13px;">We'll notify you as soon as it's confirmed. Please arrive 5 minutes early once confirmed. Call us at <a href="tel:+919967412613" style="color:#F07D14;">+91 9967 412613</a> for changes.</p>
   `);
   if (email) {
-    await sendBrevoEmail({ to: email, toName: name, subject: 'Table Reserved — One in a Million', html });
+    await sendBrevoEmail({ to: email, toName: name, subject: 'Reservation Received — One in a Million', html });
   }
 }

@@ -188,12 +188,14 @@ mongoose.connect(MONGO_URI).then(() => {
 
 // ─── SOCKET.IO ────────────────────────────────────────────────────────────────
 const STATUS_MESSAGES = {
-  pending:          'Order received! Waiting for confirmation.',
-  confirmed:         'Your order has been confirmed.',
-  preparing:         'Your order is being prepared',
-  out_for_delivery:  'Out for delivery',
-  delivered:         'Delivered',
-  cancelled:         'Your order has been cancelled.',
+  pending:            'Order received! Waiting for confirmation.',
+  confirmed:          'Your order has been confirmed.',
+  preparing:          'Your order is being prepared',
+  reached_restaurant: 'Delivery partner has reached the restaurant',
+  picked_up:          'Your order has been picked up and is on its way',
+  out_for_delivery:   'Out for delivery',
+  delivered:          'Delivered',
+  cancelled:          'Your order has been cancelled.',
 };
 
 io.on('connection', (socket) => {
@@ -266,12 +268,14 @@ async function createNotification({ userId, type, title, body, data = {} }) {
 }
 
 const STATUS_LABELS = {
-  pending:          { emoji: '🧾', label: 'Order Received' },
-  confirmed:        { emoji: '✅', label: 'Order Confirmed' },
-  preparing:        { emoji: '👨‍🍳', label: 'Being Prepared' },
-  out_for_delivery: { emoji: '🛵', label: 'Out for Delivery' },
-  delivered:        { emoji: '🎉', label: 'Delivered!' },
-  cancelled:        { emoji: '❌', label: 'Order Cancelled' },
+  pending:            { emoji: '🧾', label: 'Order Received' },
+  confirmed:          { emoji: '✅', label: 'Order Confirmed' },
+  preparing:          { emoji: '👨‍🍳', label: 'Being Prepared' },
+  reached_restaurant: { emoji: '📍', label: 'Reached Restaurant' },
+  picked_up:          { emoji: '📦', label: 'Order Picked Up' },
+  out_for_delivery:   { emoji: '🛵', label: 'Out for Delivery' },
+  delivered:          { emoji: '🎉', label: 'Delivered!' },
+  cancelled:          { emoji: '❌', label: 'Order Cancelled' },
 };
 
 const LOCATIONS = ['Mall Road, Civil Lines', 'Wright Town'];
@@ -919,7 +923,7 @@ app.post('/api/admin/delivery-boys/:id/message', adminOnly, async (req, res) => 
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
-app.get('/api/seed-menu', async (req, res) => {
+app.get('/api/seed-menu', adminOnly, async (req, res) => {
   try {
     const products = [
       { id: "paneer-makhani", name: "Paneer Makhani Burger", category: "burgers", subcat: "veg", price: 219, image: "https://res.cloudinary.com/dsjxrospe/image/upload/f_auto,q_auto,w_600,h_600,c_fill/one%20in%20a%20million/images/paneer-makhani", badge: "Signature", spicy: true, veg: true, desc: "Crunchy makhani paneer patty, pickled onions, mint sauce, lettuce, and toasted bun." },
