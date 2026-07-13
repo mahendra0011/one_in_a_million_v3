@@ -6,6 +6,7 @@ import {
   useEffect,
   useId,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -145,7 +146,9 @@ export function MapMarker({
 }) {
   const { map } = useMap();
   const cbRef = useRef({ onClick, onMouseEnter, onMouseLeave, onDragStart, onDrag, onDragEnd });
-  cbRef.current = { onClick, onMouseEnter, onMouseLeave, onDragStart, onDrag, onDragEnd };
+  useLayoutEffect(() => {
+    cbRef.current = { onClick, onMouseEnter, onMouseLeave, onDragStart, onDrag, onDragEnd };
+  });
 
   const marker = useMemo(() => {
     const el = document.createElement('div');
@@ -325,7 +328,7 @@ export function MapControls({
 export function MapPopup({ longitude, latitude, onClose, children, className, closeButton = false, ...popupOpts }) {
   const { map } = useMap();
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useLayoutEffect(() => { onCloseRef.current = onClose; });
   const container = useMemo(() => document.createElement('div'), []);
   const popup = useMemo(() => new maplibregl.Popup({ offset: 16, ...popupOpts, closeButton: false }).setMaxWidth('none').setLngLat([longitude, latitude]), []);
 
