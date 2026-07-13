@@ -6,25 +6,15 @@ import net from 'net';
 
 function backendGuard() {
   let backendUp = false;
-  let recheckAt = 0;
   let upgradeHandlers = [];
 
   function checkBackend(next) {
-    // Trust a recent successful check for a short window (avoids opening a
-    // socket on every single request), but always re-verify after it expires
-    // instead of caching "up" forever — that staleness was the bug: it meant
-    // restarts after the first one were never detected.
-    if (backendUp && Date.now() < recheckAt) { next(); return; }
+    if (backendUp) { next(); return; }
     const sock = new net.Socket();
     sock.setTimeout(500);
-    sock.on('connect', () => {
-      sock.destroy();
-      backendUp = true;
-      recheckAt = Date.now() + 250;
-      next();
-    });
-    sock.on('error', () => { sock.destroy(); backendUp = false; next(new Error('Backend not ready')); });
-    sock.on('timeout', () => { sock.destroy(); backendUp = false; next(new Error('Backend not ready')); });
+    sock.on('connect', () => { sock.destroy(); backendUp = true; next(); });
+    sock.on('error', () => { sock.destroy(); next(new Error('Backend not ready')); });
+    sock.on('timeout', () => { sock.destroy(); next(new Error('Backend not ready')); });
     sock.connect(3001, 'localhost');
   }
 

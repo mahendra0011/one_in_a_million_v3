@@ -160,7 +160,7 @@ export default function LocationPicker({ onLocationChange, initialAddress = '' }
             </div>
           </div>
 
-          <div className="rounded-xl overflow-hidden border border-white/10" style={{ height: 220 }}>
+          <div className="rounded-xl overflow-hidden border border-white/10 relative" style={{ height: 220, zIndex: 10 }}>
             <Map center={[pinned.lng, pinned.lat]} zoom={16}>
               <MapControls position="top-right" showZoom showCompass />
               <MapMarker

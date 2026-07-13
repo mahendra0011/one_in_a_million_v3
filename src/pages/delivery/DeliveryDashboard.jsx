@@ -99,7 +99,7 @@ function ActiveOrderCard({
                 restaurantLocation={restaurantLocation}
                 driverPath={driverPath}
                 routeGeometry={routeGeometry}
-                height={380}
+                height={500}
                 viewMode="delivery"
                 showLocate={true}
                 onMarkDestination={(dest) => {

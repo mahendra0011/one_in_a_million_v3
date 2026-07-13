@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useCallback, useEffect, useRef } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { addItem, fetchServerCart, syncCartToServer, validateCartItems } from './store/slices/cartSlice';
 import { fetchNotifications, pushNotification, clearNotificationsState } from './store/slices/notificationSlice';
@@ -7,7 +7,6 @@ import { useMenu } from './hooks/useMenu';
 import { useSocket } from './hooks/useSocket';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
-import CartDrawer from './components/CartDrawer';
 import Customizer from './components/Customizer';
 import { ToastContainer } from './components/Toast';
 import AdminGuard from './components/AdminGuard';
@@ -29,7 +28,8 @@ const ReviewsPage       = lazy(() => import('./pages/ReviewsPage'));
 const AccountPage       = lazy(() => import('./pages/AccountPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const FAQPage           = lazy(() => import('./pages/FAQPage'));
-const PaymentPage       = lazy(() => import('./pages/PaymentPage'));
+const CartPage          = lazy(() => import('./pages/CartPage'));
+const CheckoutPage      = lazy(() => import('./pages/CheckoutPage'));
 const NotFoundPage      = lazy(() => import('./pages/NotFoundPage'));
 const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'));
 const OrderDetailPage   = lazy(() => import('./pages/OrderDetailPage'));
@@ -72,9 +72,9 @@ function PageLoader() {
 }
 
 export default function App() {
-  const [cartOpen, setCartOpen] = useState(false);
   const [custOpen, setCustOpen] = useState(false);
   const [custProductId, setCustProductId] = useState(null);
+  const navigate = useNavigate();
 
   const dispatch = useDispatch();
   const cart = useSelector((state) => state.cart);
@@ -175,11 +175,10 @@ export default function App() {
 
   const hideNav = isAdmin || isDelivery;
 
-  return (
+return (
     <div className="min-h-screen bg-[#0A0604] flex flex-col">
       <OfflineBanner />
-      {!hideNav && <Navbar cartCount={cartCount} onOpenCart={() => setCartOpen(true)} />}
-      {!hideNav && <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />}
+      {!hideNav && <Navbar cartCount={cartCount} onOpenCart={() => navigate('/cart')} />}
       {!hideNav && (
         <Customizer
           key={`${custOpen}-${custProductId}`}
@@ -208,7 +207,8 @@ export default function App() {
             <Route path="/create-account" element={<AccountPage initialTab="register" />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/faq" element={<FAQPage />} />
-            <Route path="/payment" element={<PaymentPage />} />
+            <Route path="/cart" element={<CartPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
 
             {/* Admin Routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
