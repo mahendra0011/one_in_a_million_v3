@@ -1,7 +1,7 @@
 import SEOHead from '../components/SEOHead';
 import { fetchWithTimeout, distanceMeters, straightLineRoute } from '../lib/utils';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { loginSuccess, logout, updateUser } from '../store/slices/authSlice';
 import LiveTrackingMap from '../components/LiveTrackingMap';
@@ -241,6 +241,7 @@ function RegisterEmailFlow() {
 function LoginEmailPasswordFlow() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [step, setStep]   = useState(0); // 0 = credentials, 1 = enter OTP
   const [email, setEmail]     = useState('');
   const [password, setPassword] = useState('');
@@ -248,8 +249,22 @@ function LoginEmailPasswordFlow() {
   const [otp, setOtp]       = useState('');
   const [loginToken, setLoginToken] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
+  const [error, setError]     = useState(() =>
+    searchParams.get('error') === 'google_auth_failed'
+      ? 'Google sign-in failed. Please try again or sign in with email & password.'
+      : ''
+  );
   const [cooldown, setCooldown] = useState(0);
+
+  // Strip the ?error= param from the URL once we've read it, so it doesn't
+  // reappear or resurface a stale message on refresh/back-navigation.
+  useEffect(() => {
+    if (searchParams.get('error')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('error');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const api = async (url, body) => {
     const res  = await fetchWithTimeout(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });

@@ -1830,32 +1830,6 @@ redirect_uri: `${process.env.SERVER_URL || 'http://localhost:3001'}/api/auth/goo
   }
 });
 
-app.post('/api/auth/login/google', authLimiter, async (req, res) => {
-  try {
-    const { idToken } = req.body;
-    if (!idToken) return res.status(400).json({ ok: false, error: 'Google ID token required' });
-    const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
-    const googleData = await googleRes.json();
-    if (!googleRes.ok || !googleData.email) {
-      return res.status(401).json({ ok: false, error: 'Invalid Google token' });
-    }
-    let user = await User.findOne({ email: googleData.email });
-    if (!user) {
-      user = await User.create({
-        name: googleData.name || 'User',
-        email: googleData.email,
-        password: Math.random().toString(36).slice(-12) + Date.now().toString(36),
-        isEmailVerified: true,
-        isActive: true,
-      });
-    }
-    if (!user.isActive) return res.status(403).json({ ok: false, error: 'Account deactivated' });
-const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-    setAuthCookie(res, token, 'bim_token', 7 * 24 * 60 * 60 * 1000);
-    res.json({ ok: true, user: { id: user._id, name: user.name, email: user.email, phone: user.phone, role: user.role, loyaltyPoints: user.loyaltyPoints, needsPhone: !user.phone } });
-  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
-});
-
 // ─── ROUTING & MAP MATCHING ───────────────────────────────────────────────────────
 // Step 8: Route generation via OpenRouteService
 const ORS_API_KEY = process.env.ORS_API_KEY;
