@@ -413,11 +413,14 @@ function LoginEmailPasswordFlow() {
 
 // ─── AUTH SCREEN ──────────────────────────────────────────────────────────────
 function AuthScreen({ initialTab }) {
+  // NOTE: initialTab is only ever meaningful as 'login' or 'register'. Do NOT
+  // resync `tab` from initialTab on every prop change (via useEffect) — /account
+  // and /login render the same AccountPage instance without remounting, so
+  // right after logout `initialTab` can still carry AccountPage's stale
+  // internal tab value (e.g. 'orders'), which this component doesn't know how
+  // to render and previously produced a blank screen. The mount-time default
+  // below already normalizes anything that isn't 'register' to 'login'.
   const [tab, setTab] = useState(initialTab === 'register' ? 'register' : 'login');
-
-  useEffect(() => {
-    if (initialTab) setTab(initialTab);
-  }, [initialTab]);
 
   return (
     <div className="min-h-screen bg-[#0A0604] flex items-center justify-center px-4 py-10">
