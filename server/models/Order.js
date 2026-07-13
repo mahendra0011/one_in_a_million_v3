@@ -29,6 +29,8 @@ const orderSchema = new mongoose.Schema({
   deliveryOtp: { type: String, default: null },
   deliveryOtpExpiry: { type: Date, default: null },
   otpVerified: { type: Boolean, default: false },
+  loyaltyAwarded: { type: Boolean, default: false },
+  pointsRedeemed: { type: Number, default: 0 },
   acceptedAt: { type: Date, default: null },
   assignedAt: { type: Date, default: null },
   rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },

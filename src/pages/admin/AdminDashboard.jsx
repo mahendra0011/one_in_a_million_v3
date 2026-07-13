@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { SkeletonCard, SkeletonTable } from '../../components/admin/SkeletonRow';
 import { useSocket } from '../../hooks/useSocket';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 // ── Tiny inline bar-chart component (no recharts dep needed) ─────────────────
 function MiniBar({ value, max, color = '#F07D14' }) {
@@ -167,17 +168,31 @@ export default function AdminDashboard() {
       setAnalytics(prev => prev ? { ...prev, totalReservations: (prev.totalReservations || 0) + 1 } : prev);
     },
     onOrderUpdated: (order) => {
-      setRecentOrders(prev => prev.map(o => (o._id === order._id || o.orderId === order.orderId) ? order : o));
-      // Update live counters
+      let oldStatus;
+      setRecentOrders(prev => {
+        const match = prev.find(o => o._id === order._id || o.orderId === order.orderId);
+        oldStatus = match?.status;
+        return prev.map(o => (o._id === order._id || o.orderId === order.orderId) ? order : o);
+      });
+      // Update live counters based on the actual status transition, so counts
+      // decrement when an order leaves 'pending'/'out_for_delivery', not just increment forever.
       setAnalytics(prev => {
         if (!prev) return prev;
         let { outForDeliveryCount = 0, pendingCount = 0 } = prev;
-        if (order.status === 'out_for_delivery') outForDeliveryCount++;
-        if (order.status === 'pending')           pendingCount++;
+        if (oldStatus !== order.status) {
+          if (oldStatus === 'out_for_delivery') outForDeliveryCount = Math.max(0, outForDeliveryCount - 1);
+          if (oldStatus === 'pending')           pendingCount = Math.max(0, pendingCount - 1);
+          if (order.status === 'out_for_delivery') outForDeliveryCount++;
+          if (order.status === 'pending')           pendingCount++;
+        }
         return { ...prev, outForDeliveryCount, pendingCount };
       });
     },
   });
+
+  // Periodic resync as a safety net — socket-driven increments/decrements above keep
+  // counters live, but this guarantees they can't drift if an event is ever missed.
+  useAutoRefresh({ fetchFn: fetchAll, interval: 60_000 });
 
   const a = analytics || {};
 

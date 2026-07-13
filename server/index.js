@@ -244,6 +244,15 @@ async function createDeliveryNotif({ deliveryBoyId, type, title, body, data = {}
 
 const notifyUser = (userId, notification) => io.to(`user-${userId}`).emit('notification', notification);
 
+// Awards loyalty points for a delivered order exactly once, regardless of which
+// path (OTP-confirmed delivery or admin manual status change) marked it delivered.
+async function awardLoyaltyPointsOnce(order) {
+  if (!order || order.loyaltyAwarded || !order.userId || !order.totals?.total) return;
+  await User.findByIdAndUpdate(order.userId, { $inc: { loyaltyPoints: Math.floor(order.totals.total / 10) } });
+  order.loyaltyAwarded = true;
+  await order.save();
+}
+
 async function createNotification({ userId, type, title, body, data = {} }) {
   if (!userId) return null;
   try {
@@ -742,9 +751,7 @@ app.post('/api/delivery/orders/:orderId/verify-otp', deliveryOnly, authLimiter, 
     order.status = 'delivered';
     await order.save();
     broadcastStatusUpdate(order, 'delivered');
-    if (order.userId && order.totals?.total) {
-      await User.findByIdAndUpdate(order.userId, { $inc: { loyaltyPoints: Math.floor(order.totals.total / 10) } });
-    }
+    await awardLoyaltyPointsOnce(order);
     res.json({ ok: true, message: 'Delivery confirmed!' });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
@@ -1028,9 +1035,8 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
     }
     const order = await Order.create({ userId: req.user.id, ...req.body, orderId, customerLocation });
     notifyAdmin('new-order', order);
-    if (order.userId && order.totals?.total) {
-      await User.findByIdAndUpdate(order.userId, { $inc: { loyaltyPoints: Math.floor(order.totals.total / 10) } });
-    }
+    // Note: loyalty points are awarded once the order is actually delivered (see awardLoyaltyPointsOnce),
+    // not at placement time — awarding here caused a double-award bug and rewarded cancelled orders.
     if (order.userId) {
       createNotification({ userId: order.userId, type: 'order_status', title: '🧾 Order Placed!', body: `Your order ${orderId} has been received. We'll confirm shortly.`, data: { orderId, status: 'pending' } });
       User.findById(order.userId).then(user => { if (user) sendOrderConfirmation({ order, userEmail: user.email, userName: user.name, userPhone: user.phone }).catch(() => {}); }).catch(() => {});
@@ -1087,6 +1093,7 @@ app.patch('/api/orders/:id/status', adminOnly, v.vOrderUpdateStatus, validate, a
       if (order.customer?.email) await sendEmailOtp({ to: order.customer.email, otp, purpose: 'delivery_confirm', name: order.customer.name || 'Customer' }).catch(() => {});
     }
     broadcastStatusUpdate(order, status);
+    if (status === 'delivered') await awardLoyaltyPointsOnce(order);
     if (assignedTo) {
       notifyDelivery(assignedTo, 'new-assignment', order);
       createDeliveryNotif({ deliveryBoyId: assignedTo, type: 'new_order', title: '🛵 Nayi Order Assign!', body: `Order ${order.orderId} aapko assign hua hai — ₹${order.totals?.total?.toFixed(0)}`, data: { orderId: order.orderId } });
@@ -1125,6 +1132,11 @@ app.patch('/api/orders/:id/assign', adminOnly, v.vOrderAssign, validate, async (
     const deliveryBoy = await User.findOne({ _id: deliveryBoyId, role: 'delivery_boy' });
     if (!deliveryBoy) return res.status(404).json({ ok: false, error: 'Delivery boy not found' });
     if (!deliveryBoy.isActive) return res.status(400).json({ ok: false, error: 'This delivery boy is inactive' });
+    const existing = await Order.findOne({ orderId: req.params.id });
+    if (!existing) return res.status(404).json({ ok: false, error: 'Order not found' });
+    if (['delivered', 'cancelled'].includes(existing.status)) {
+      return res.status(400).json({ ok: false, error: `Cannot assign a delivery boy — order is already ${existing.status}` });
+    }
     const order = await Order.findOneAndUpdate({ orderId: req.params.id }, { assignedTo: deliveryBoyId, status: 'confirmed', assignedAt: new Date() }, { new: true }).populate('assignedTo', 'name phone');
     if (!order) return res.status(404).json({ ok: false, error: 'Order not found' });
     broadcastStatusUpdate(order, 'confirmed');
