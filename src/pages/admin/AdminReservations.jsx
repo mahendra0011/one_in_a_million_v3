@@ -1,8 +1,9 @@
 import { fetchWithTimeout } from '../../lib/utils';
 import { useState, useEffect, useCallback } from 'react';
-import { Search, RefreshCw, Calendar, Clock, Users } from 'lucide-react';
+import { Search, RefreshCw, Calendar, Clock, Users, X } from 'lucide-react';
 import { SkeletonTable } from '../../components/admin/SkeletonRow';
 import { useSocket } from '../../hooks/useSocket';
+
 const STATUS_OPTIONS = ['pending', 'confirmed', 'cancelled'];
 const headers = { 'Content-Type': 'application/json' };
 const STATUS_STYLE = {
@@ -18,6 +19,7 @@ export default function AdminReservations() {
   const [search, setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [updating, setUpdating]   = useState(null);
+  const [actionError, setActionError] = useState('');
 
   
   const fetchReservations = useCallback(async (isRefresh = false) => {
@@ -49,8 +51,11 @@ export default function AdminReservations() {
         body: JSON.stringify({ status: newStatus }) });
       if (res.ok) {
         setReservations(prev => prev.map(r => (r._id === id || r.id === id) ? { ...r, status: newStatus } : r));
+      } else {
+        const data = await res.json();
+        setActionError(data.error || 'Failed to update reservation');
       }
-    } catch { /* silent */ }
+    } catch (err) { setActionError('Network error updating reservation'); }
     setUpdating(null);
   };
 
@@ -71,6 +76,12 @@ export default function AdminReservations() {
 
   return (
     <div>
+      {actionError && (
+        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex justify-between items-center">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError('')} className="text-red-500 hover:text-red-700"><X size={14} /></button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-fredoka text-3xl font-bold text-gray-900">Reservations</h1>

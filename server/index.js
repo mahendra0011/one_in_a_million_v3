@@ -125,6 +125,24 @@ app.use(cors({
 }));
 app.use(cookieParser());
 
+// ─── IST TIMEZONE HELPER ───────────────────────────────────────────────────────────
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // +05:30 IST
+const getIstTodayStart = () => {
+  const now = new Date();
+  const istNow = new Date(now.getTime() + IST_OFFSET_MS);
+  return new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate()));
+};
+const getIstWeekStart = () => {
+  const today = getIstTodayStart();
+  const day = today.getUTCDay();
+  return new Date(today.getTime() - (day * 24 * 60 * 60 * 1000));
+};
+const getIstMonthStart = () => {
+  const now = new Date();
+  const istNow = new Date(now.getTime() + IST_OFFSET_MS);
+  return new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), 1));
+};
+
 // ─── CSRF PROTECTION ───────────────────────────────────────────────────────────
 // NOTE: We rely on httpOnly + sameSite:'strict' auth cookies (see
 // server/middleware/auth.js setAuthCookie) for CSRF protection instead of a
@@ -538,6 +556,16 @@ app.put('/api/auth/addresses', authenticate, async (req, res) => {
   try {
     const { addresses } = req.body;
     if (!Array.isArray(addresses)) return res.status(400).json({ ok: false, error: 'addresses array required' });
+    if (addresses.length > 10) return res.status(400).json({ ok: false, error: 'Maximum 10 addresses allowed' });
+    for (const addr of addresses) {
+      if (typeof addr?.address !== 'string' || addr.address.length > 200) {
+        return res.status(400).json({ ok: false, error: 'Each address must have address text (max 200 chars)' });
+      }
+      if ((addr.lat !== undefined && (typeof addr.lat !== 'number' || isNaN(addr.lat))) ||
+          (addr.lng !== undefined && (typeof addr.lng !== 'number' || isNaN(addr.lng)))) {
+        return res.status(400).json({ ok: false, error: 'lat/lng must be valid numbers' });
+      }
+    }
     const user = await User.findByIdAndUpdate(req.user.id, { savedAddresses: addresses }, { new: true }).select('-password');
     res.json({ ok: true, addresses: user.savedAddresses, user });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
@@ -753,8 +781,13 @@ app.post('/api/delivery/orders/:orderId/verify-otp', deliveryOnly, authLimiter, 
     if (!order) return res.status(404).json({ ok: false, error: 'Order not found' });
     if (!order.deliveryOtp) return res.status(400).json({ ok: false, error: 'No OTP generated for this order' });
     if (new Date() > order.deliveryOtpExpiry) return res.status(400).json({ ok: false, error: 'OTP expired' });
+    if (order.deliveryOtpAttempts >= 5) return res.status(429).json({ ok: false, error: 'Too many failed attempts. Request a new OTP.' });
     const validOtp = await verifyOtp(otp, order.deliveryOtp);
-    if (!validOtp) return res.status(400).json({ ok: false, error: 'Wrong OTP' });
+    if (!validOtp) {
+      order.deliveryOtpAttempts += 1;
+      await order.save();
+      return res.status(400).json({ ok: false, error: 'Wrong OTP' });
+    }
     order.otpVerified = true;
     order.status = 'delivered';
     await order.save();
@@ -799,10 +832,9 @@ app.patch('/api/delivery/my-location', liveTrackingLimiter, deliveryOnly, async 
 // ─── DELIVERY: EARNINGS ──────────────────────────────────────────────────────
 app.get('/api/delivery/earnings', deliveryOnly, async (req, res) => {
   try {
-    const now = new Date();
-    const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
-    const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay()); startOfWeek.setHours(0, 0, 0, 0);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfDay = getIstTodayStart();
+    const startOfWeek = getIstWeekStart();
+    const startOfMonth = getIstMonthStart();
     const baseFilter = { assignedTo: req.user.id, status: 'delivered' };
     const COMMISSION_RATE = 0.10;
     const [todayOrders, weekOrders, monthOrders, allOrders] = await Promise.all([
@@ -1024,6 +1056,15 @@ app.delete('/api/menu/:id', adminOnly, v.vMenuIdParam, validate, async (req, res
 // ─── ORDERS ROUTES ────────────────────────────────────────────────────────────
 app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, async (req, res) => {
   try {
+    // Check if restaurant is open for orders
+    const s = await getSettings();
+    if (s.isOpen === false) {
+      return res.status(503).json({ ok: false, error: 'Restaurant is currently closed. Please try again during operating hours.' });
+    }
+    // Check maintenance mode
+    if (s.maintenanceMode === true) {
+      return res.status(503).json({ ok: false, error: 'System under maintenance. Please try again later.' });
+    }
     const orderId = 'BIM-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
     const customerLocation = {};
     if (req.body.customer?.deliveryAddress) customerLocation.address = req.body.customer.deliveryAddress;
@@ -1042,11 +1083,79 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
         return res.status(403).json({ ok: false, error: 'Your account has been banned' });
       }
     }
-    // Clamp redeemed points server-side to what the user actually has — never trust the client value outright.
+    // Server-side price validation — never trust client prices
+    const itemsWithDbPrices = [];
+    let serverCalculatedTotal = 0;
+    for (const item of req.body.items) {
+      if (!item.productId || !item.qty || item.qty < 1) {
+        return res.status(400).json({ ok: false, error: 'Invalid item: productId and positive qty required' });
+      }
+      const menuItem = await MenuItem.findOne({ id: item.productId });
+      if (!menuItem || !menuItem.available) {
+        return res.status(400).json({ ok: false, error: `Item not available: ${item.productId}` });
+      }
+      const itemTotal = menuItem.price * item.qty;
+      serverCalculatedTotal += itemTotal;
+      itemsWithDbPrices.push({ ...item, basePrice: menuItem.price, unitPrice: menuItem.price });
+    }
+    // Validate coupon if provided
+    let couponDiscount = 0;
+    if (req.body.coupon) {
+      const coupon = await Coupon.findOne({ code: req.body.coupon.toUpperCase(), isActive: true });
+      if (!coupon) {
+        return res.status(400).json({ ok: false, error: 'Invalid coupon code' });
+      }
+      if (coupon.expiry && new Date() > coupon.expiry) {
+        return res.status(400).json({ ok: false, error: 'Coupon expired' });
+      }
+      if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
+        return res.status(400).json({ ok: false, error: 'Coupon usage limit reached' });
+      }
+      if (serverCalculatedTotal < coupon.minOrder) {
+        return res.status(400).json({ ok: false, error: `Minimum order ₹${coupon.minOrder} required for this coupon` });
+      }
+      couponDiscount = coupon.discountType === 'percent'
+        ? Math.floor(serverCalculatedTotal * coupon.discountValue / 100)
+        : coupon.discountValue;
+    }
+    const deliveryCharge = req.body.deliveryCharge || 0;
+    serverCalculatedTotal += deliveryCharge;
+    const serverCalculatedGrandTotal = serverCalculatedTotal - couponDiscount;
+    // Validate minOrderAmount from settings
+    const minOrderAmount = s.minOrderAmount || 0;
+    if (serverCalculatedGrandTotal < minOrderAmount) {
+      return res.status(400).json({ ok: false, error: `Minimum order amount is ₹${minOrderAmount}` });
+    }
+    // Validate client-sent totals match server calculations (allow small rounding diff)
+    const clientTotal = req.body.totals?.total || 0;
+    if (Math.abs(clientTotal - serverCalculatedGrandTotal) > 1) {
+      return res.status(400).json({ ok: false, error: 'Price mismatch detected. Please refresh and try again.' });
+    }
+    // Clamp redeemed points server-side
     const pointsRedeemed = user && req.body.pointsRedeemed > 0
       ? Math.min(Math.floor(req.body.pointsRedeemed), user.loyaltyPoints || 0)
       : 0;
-    const order = await Order.create({ userId: req.user.id, ...req.body, pointsRedeemed, orderId, customerLocation });
+    const order = await Order.create({
+      userId: req.user.id,
+      ...req.body,
+      items: itemsWithDbPrices,
+      totals: {
+        subtotal: serverCalculatedTotal - deliveryCharge,
+        delivery: deliveryCharge,
+        discount: couponDiscount,
+        total: serverCalculatedGrandTotal
+      },
+      pointsRedeemed,
+      orderId,
+      customerLocation
+    });
+    // Increment coupon usage atomically after successful order creation
+    if (req.body.coupon) {
+      await Coupon.findOneAndUpdate(
+        { code: req.body.coupon.toUpperCase(), isActive: true, $or: [{ maxUses: null }, { $expr: { $lt: ['$usedCount', '$maxUses'] } }] },
+        { $inc: { usedCount: 1 } }
+      );
+    }
     notifyAdmin('new-order', order);
     if (pointsRedeemed > 0) {
       await User.findByIdAndUpdate(user._id, { $inc: { loyaltyPoints: -pointsRedeemed } });
@@ -1203,20 +1312,23 @@ app.post('/api/orders/:id/generate-delivery-otp', deliveryOnly, otpLimiter, v.vO
 
 // ─── RESERVATIONS ─────────────────────────────────────────────────────────────
 app.post('/api/reservations', reservationLimiter, v.vCreateReservation, validate, async (req, res) => {
+  const session = await mongoose.startSession();
   try {
     const location = req.body.location || LOCATIONS[0];
     const date = req.body.date;
     const time = req.body.time;
     
-    // Check table availability (max 20 tables per location)
-    const existing = await Reservation.countDocuments({ location, date, time, status: { $ne: 'cancelled' } });
-    if (existing >= 20) {
-      return res.status(409).json({ ok: false, error: 'No tables available at this time. Please choose another slot.' });
-    }
+    // Atomic check-and-create within transaction to prevent race condition
+    const result = await session.withTransaction(async () => {
+      const existing = await Reservation.countDocuments({ location, date, time, status: { $ne: 'cancelled' } }).session(session);
+      if (existing >= 20) {
+        throw new Error('No tables available at this time. Please choose another slot.');
+      }
+      const reservation = await Reservation.create([req.body], { session });
+      return reservation[0];
+    });
     
-    const reservation = await Reservation.create(req.body);
-    notifyAdmin('new-reservation', reservation);
-    // Send confirmation email to customer
+    notifyAdmin('new-reservation', result);
     const toName = req.body.name;
     const toEmail = req.body.email;
     const toPhone = req.body.phone;
@@ -1231,8 +1343,12 @@ app.post('/api/reservations', reservationLimiter, v.vCreateReservation, validate
         location: req.body.location || LOCATIONS[0],
       }).catch(() => {});
     }
-    res.status(201).json({ ok: true, reservation });
-  } catch (err) { res.status(400).json({ ok: false, error: err.message }); }
+    res.status(201).json({ ok: true, reservation: result });
+  } catch (err) {
+    res.status(err.message.includes('tables available') ? 409 : 400).json({ ok: false, error: err.message });
+  } finally {
+    await session.endSession();
+  }
 });
 
 // Customer-scoped reservations list — matched by the logged-in user's email, since
@@ -1268,22 +1384,22 @@ app.patch('/api/reservations/:id', adminOnly, v.vUpdateReservation, validate, as
 });
 
 // ── USER CANCEL RESERVATION ────────────────────────────────────────────────
-// Users can cancel their own reservation by providing their email + phone
-// Reservation ID is optional but helps narrow down
-app.post('/api/reservations/cancel', async (req, res) => {
+// Users must be authenticated to cancel their reservation. Matches order cancel security pattern.
+app.post('/api/reservations/cancel', authenticate, reservationLimiter, async (req, res) => {
   try {
-    const { email, phone, reservationId } = req.body;
-    if (!email && !phone && !reservationId) {
-      return res.status(400).json({ ok: false, error: 'Email, phone or reservationId required' });
+    const { reservationId } = req.body;
+    if (!reservationId) return res.status(400).json({ ok: false, error: 'reservationId required' });
+    const reservation = await Reservation.findById(reservationId);
+    if (!reservation) return res.status(404).json({ ok: false, error: 'Reservation not found' });
+    // Only the user who made the reservation or admin can cancel
+    const isAdmin = req.user.role === 'admin';
+    const isOwner = String(reservation.email || '').toLowerCase() === String(req.user.email || '').toLowerCase();
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ ok: false, error: 'Unauthorized to cancel this reservation' });
     }
-    const filter = { status: { $ne: 'cancelled' } };
-    if (reservationId) filter._id = reservationId;
-    if (email) filter.email = email;
-    if (phone) filter.phone = phone;
-    
-    const reservation = await Reservation.findOne(filter);
-    if (!reservation) return res.status(404).json({ ok: false, error: 'Reservation not found or already cancelled' });
-    
+    if (reservation.status === 'cancelled') {
+      return res.status(400).json({ ok: false, error: 'Reservation already cancelled' });
+    }
     reservation.status = 'cancelled';
     await reservation.save();
     notifyAdmin('reservation-updated', reservation);
@@ -1341,7 +1457,24 @@ app.post('/api/coupons/use', optionalAuth, async (req, res) => {
   try {
     const { code } = req.body;
     if (!code) return res.status(400).json({ ok: false, error: 'code required' });
-    await Coupon.findOneAndUpdate({ code: code.toUpperCase(), isActive: true }, { $inc: { usedCount: 1 } });
+    // Atomic update with validation - only increment if coupon is still valid
+    const coupon = await Coupon.findOneAndUpdate(
+      {
+        code: code.toUpperCase(),
+        isActive: true,
+        $or: [
+          { expiry: null },
+          { expiry: { $gt: new Date() } }
+        ],
+        $or: [
+          { maxUses: null },
+          { $expr: { $lt: ['$usedCount', '$maxUses'] } }
+        ]
+      },
+      { $inc: { usedCount: 1 } },
+      { new: false }
+    );
+    if (!coupon) return res.status(400).json({ ok: false, error: 'Coupon invalid, expired, or usage limit reached' });
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
@@ -1381,6 +1514,10 @@ app.get('/api/reviews/my', authenticate, async (req, res) => {
 
 app.post('/api/reviews', authenticate, v.vCreateReview, validate, async (req, res) => {
   try {
+    const s = await getSettings();
+    if (s.allowReviews === false) {
+      return res.status(503).json({ ok: false, error: 'Reviews are temporarily disabled' });
+    }
     const { orderId, itemId, rating, comment, photos } = req.body;
     if (!orderId || !rating) return res.status(400).json({ ok: false, error: 'orderId and rating are required' });
     const order = await Order.findOne({ orderId, userId: req.user.id, status: 'delivered' });
@@ -1533,14 +1670,13 @@ app.delete('/api/cart', authenticate, async (req, res) => {
 // ─── ANALYTICS ────────────────────────────────────────────────────────────────
 app.get('/api/analytics', adminOnly, async (req, res) => {
   try {
-    const now = new Date();
-    const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
-    const todayEnd = new Date(now); todayEnd.setHours(23,59,59,999);
-    const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-    const yesterdayEnd = new Date(todayEnd); yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
-    const weekStart = new Date(todayStart); weekStart.setDate(weekStart.getDate() - 6);
-    const prevWeekStart = new Date(weekStart); prevWeekStart.setDate(prevWeekStart.getDate() - 7);
-    const prevWeekEnd = new Date(weekStart); prevWeekEnd.setMilliseconds(-1);
+    const todayStart = getIstTodayStart();
+    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+    const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayEnd = new Date(todayEnd.getTime() - 24 * 60 * 60 * 1000);
+    const weekStart = getIstWeekStart();
+    const prevWeekStart = new Date(weekStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const prevWeekEnd = new Date(weekStart.getTime() - 1);
 
     const [totalOrders, totalRevenueAgg, totalUsers, totalDeliveryBoys, activeDeliveryBoys, totalReservations, statusBreakdown, recentOrders, todayRevenueAgg, yesterdayRevenueAgg, todayOrderCount, yesterdayOrderCount, thisWeekDailyAgg, prevWeekRevenueAgg, avgOrderValueAgg, topItemsAgg, peakHoursAgg, outForDeliveryCount, pendingCount] = await Promise.all([
       Order.countDocuments(),
@@ -1555,9 +1691,11 @@ app.get('/api/analytics', adminOnly, async (req, res) => {
       Order.aggregate([{ $match: { createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd } } }, { $group: { _id: null, total: { $sum: '$totals.total' } } }]),
       Order.countDocuments({ createdAt: { $gte: todayStart, $lte: todayEnd } }),
       Order.countDocuments({ createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd } }),
-      Order.aggregate([{ $match: { createdAt: { $gte: weekStart, $lte: todayEnd } } }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } }, revenue: { $sum: '$totals.total' }, orders: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
-      Order.aggregate([{ $match: { createdAt: { $gte: prevWeekStart, $lte: prevWeekEnd } } }, { $group: { _id: null, total: { $sum: '$totals.total' }, orders: { $sum: 1 } } }]),
-      Order.aggregate([{ $match: { status: { $in: ['delivered', 'out_for_delivery', 'preparing', 'confirmed'] } } }, { $group: { _id: null, avg: { $avg: '$totals.total' } } }]),
+      // Use consistent IST timezone for all daily aggregations (+05:30)
+      Order.aggregate([{ $match: { createdAt: { $gte: weekStart } } }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } }, revenue: { $sum: '$totals.total' }, orders: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
+      Order.aggregate([{ $match: { createdAt: { $gte: prevWeekStart, $lt: prevWeekEnd } } }, { $group: { _id: null, total: { $sum: '$totals.total' }, orders: { $sum: 1 } } }]),
+      // Include all non-cancelled statuses for accurate avg order value
+      Order.aggregate([{ $match: { status: { $in: ['delivered', 'out_for_delivery', 'preparing', 'confirmed', 'picked_up', 'reached_restaurant', 'cancelled'] } } }, { $group: { _id: null, avg: { $avg: '$totals.total' } } }]),
       Order.aggregate([{ $unwind: '$items' }, { $group: { _id: '$items.name', qty: { $sum: '$items.qty' }, revenue: { $sum: { $multiply: ['$items.unitPrice', '$items.qty'] } } } }, { $sort: { qty: -1 } }, { $limit: 5 }]),
       Order.aggregate([{ $match: { createdAt: { $gte: weekStart } } }, { $group: { _id: { $hour: { date: '$createdAt', timezone: '+05:30' } }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
       Order.countDocuments({ status: 'out_for_delivery' }),
@@ -2017,16 +2155,26 @@ app.get('/api/geocode/reverse', async (req, res) => {
   }
 });
 
-// ─── SIMPLE LOGIN (backward compat alias for unified login) ──────────────────
-// AccountPage unified flow use karta hai, ye route direct API callers ke liye hai
+// ─── SIMPLE LOGIN (backward compat) ─────────────────────────────────────────
+// NOTE: Kept for backward compatibility but secured with same lockout/security as unified flow
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ ok: false, error: 'Email and password required' });
     const user = await User.findOne({ email });
     if (!user || !user.isActive) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    // Check account lockout
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      return res.status(429).json({ ok: false, error: 'Account temporarily locked. Try again later.' });
+    }
     const valid = await user.comparePassword(password);
-    if (!valid) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    if (!valid) {
+      await user.incLoginAttempts();
+      await logSecurityEvent('failed_login', { userId: user._id, email: user.email });
+      return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    }
+    await user.resetLoginAttempts();
+    await logSecurityEvent('login_success', { userId: user._id, email: user.email });
     const cookieMap = { admin: 'bim_admin_token', delivery_boy: 'bim_delivery_token', user: 'bim_token' };
     const cookieName = cookieMap[user.role] || 'bim_token';
     const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });

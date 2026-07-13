@@ -4,6 +4,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Phone, MapPin, MessageSquare, Send, Clock, Mail, Globe } from 'lucide-react';
 import { fetchWithTimeout } from '../lib/utils';
+import { toast } from '../components/Toast';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -210,35 +211,35 @@ export default function ContactPage() {
                 <p className="text-[#A39791] mb-8">Fill out the form below and we'll get back to you within 24 hours.</p>
 
 <form className="space-y-6" onSubmit={async (e) => {
-  e.preventDefault();
-  if (submitting) return;
-  setSubmitting(true);
-  try {
-    const form = e.target;
-    const data = {
-      name: form.name.value,
-      email: form.email.value,
-      phone: form.phone.value,
-      subject: form.subject.value,
-      message: form.message.value,
-    };
-    const res = await fetchWithTimeout('/api/contact', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    const json = await res.json();
-    if (json.ok) {
-      alert('Message sent! We will get back to you soon.');
-      form.reset();
-    } else {
-      alert('Failed: ' + json.error);
+    e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const form = e.target;
+      const data = {
+        name: form.name.value,
+        email: form.email.value,
+        phone: form.phone.value,
+        subject: form.subject.value,
+        message: form.message.value,
+      };
+      const res = await fetchWithTimeout('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        toast('Message sent! We will get back to you soon.', 'success');
+        form.reset();
+      } else {
+        toast('Failed: ' + json.error, 'error');
+      }
+    } catch (err) {
+      toast('Error: ' + err.message, 'error');
+    } finally {
+      setSubmitting(false);
     }
-  } catch (err) {
-    alert('Error: ' + err.message);
-  } finally {
-    setSubmitting(false);
-  }
 }}>
                    <div className="form-group grid sm:grid-cols-2 gap-4">
                      <div>

@@ -38,12 +38,12 @@ export default function PaymentPage() {
     }
   }, [items.length, paid, navigate, cart.fulfillment, cart.deliveryAddress, cart.deliveryCoords, cart.deliveryDetails]);
 
-  // Step 23 — fetch delivery charge from settings
-  const [deliveryCharge, setDeliveryCharge] = useState(39);
+  // Step 23 — fetch settings (delivery charge, min order, payment methods)
+  const [settings, setSettings] = useState({ deliveryCharge: 39, minOrderAmount: 149, razorpayEnabled: true, upiEnabled: true, codEnabled: true, maintenanceMode: false, isOpen: true });
   useEffect(() => {
     retryFetchWithTimeout('/api/settings')
       .then(r => r.json())
-      .then(d => { if (d.ok) setDeliveryCharge(d.settings.deliveryCharge ?? 39); })
+      .then(d => { if (d.ok) setSettings({ deliveryCharge: d.settings.deliveryCharge ?? 39, minOrderAmount: d.settings.minOrderAmount ?? 149, razorpayEnabled: d.settings.razorpayEnabled ?? true, upiEnabled: d.settings.upiEnabled ?? true, codEnabled: d.settings.codEnabled ?? true, maintenanceMode: d.settings.maintenanceMode ?? false, isOpen: d.settings.isOpen ?? true }); })
       .catch(() => {});
   }, []);
 
@@ -55,16 +55,34 @@ export default function PaymentPage() {
   // Step 18 — use Redux-stored validated discount, not hardcoded local calc
   const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
   const discount = cart.coupon ? (cart.couponDiscount || 0) : 0;
-  const delivery = cart.fulfillment === 'delivery' && subtotal > 0 ? deliveryCharge : 0;
+  const delivery = cart.fulfillment === 'delivery' && subtotal > 0 ? settings.deliveryCharge : 0;
   const tax = (subtotal - discount - pointsDiscount) * 0.05;
   const total = subtotal - discount - pointsDiscount + delivery + tax;
 
   const [error, setError] = useState('');
 
+  const METHOD_TABS = [
+    ...(settings.razorpayEnabled ? [{ id: 'card', Icon: CreditCard, label: 'Card' }] : []),
+    ...(settings.upiEnabled ? [{ id: 'upi', Icon: Smartphone, label: 'UPI' }] : []),
+    ...(settings.razorpayEnabled ? [{ id: 'wallet', Icon: Wallet, label: 'Wallet' }] : []),
+    ...(settings.razorpayEnabled ? [{ id: 'netbanking', Icon: Building2, label: 'NetBanking' }] : []),
+    ...(settings.codEnabled ? [{ id: 'cod', Icon: Wallet, label: 'COD' }] : []),
+  ];
+
   const handlePay = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    if (!settings.isOpen) {
+      setError('Restaurant is currently closed. Please try again later.');
+      setLoading(false);
+      return;
+    }
+    if (subtotal < settings.minOrderAmount) {
+      setError(`Minimum order amount is ₹${settings.minOrderAmount}. Add more items to proceed.`);
+      setLoading(false);
+      return;
+    }
     const orderPayload = {
       items,
       totals: { subtotal, discount, pointsDiscount, delivery, tax, total },
@@ -162,27 +180,21 @@ export default function PaymentPage() {
             {/* Method Tabs */}
             <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-6">
               <h2 className="font-fredoka text-xl font-bold text-white mb-4">Payment Method</h2>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                {[
-                  { id: 'card', Icon: CreditCard, label: 'Card' },
-                  { id: 'upi', Icon: Smartphone, label: 'UPI' },
-                  { id: 'wallet', Icon: Wallet, label: 'Wallet' },
-                  { id: 'netbanking', Icon: Building2, label: 'NetBanking' },
-                  { id: 'cod', Icon: Wallet, label: 'COD' },
-                ].map(({ id, Icon, label }) => (
-                  <button
-                    key={id}
-                    onClick={() => setMethod(id)}
-                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 font-semibold transition-all text-sm ${
-                      method === id
-                        ? 'border-[#F07D14] bg-[#F07D14]/10 text-[#F07D14] shadow-sm'
-                        : 'border-white/10 text-[#A39791] hover:border-[#F07D14]/40 hover:text-white'
-                    }`}
-                  >
-                    <Icon size={20} />
-                    {label}
-                  </button>
-                ))}
+<div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                {METHOD_TABS.map(({ id, Icon, label }) => (
+                   <button
+                     key={id}
+                     onClick={() => setMethod(id)}
+                     className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 font-semibold transition-all text-sm ${
+                       method === id
+                         ? 'border-[#F07D14] bg-[#F07D14]/10 text-[#F07D14] shadow-sm'
+                         : 'border-white/10 text-[#A39791] hover:border-[#F07D14]/40 hover:text-white'
+                     }`}
+                   >
+                     <Icon size={20} />
+                     {label}
+                   </button>
+                 ))}
               </div>
             </div>
 

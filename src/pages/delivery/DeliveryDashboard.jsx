@@ -1,4 +1,5 @@
 import { fetchWithTimeout, straightLineRoute, distanceMeters } from '../../lib/utils';
+import { toast } from '../../components/Toast';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LocateFixed, MapPin, Navigation, Package, Timer, Bike, ShoppingBag, X, AlertTriangle, BellRing, Radio, ChevronDown, Phone, RefreshCw, CheckCircle, Clock, Star, Bell, User, LogOut, ChevronRight, Camera, Loader2, Trophy, DollarSign, TrendingUp, Award } from 'lucide-react';
@@ -156,7 +157,7 @@ function ActiveOrderCard({
                       if (dist > 50) { if (!confirm(`You're ${Math.round(dist)}m away. Still mark as reached?`)) return; }
                     }
                     const res = await fetchWithTimeout(`/api/orders/${activeOrder.orderId}/generate-delivery-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
-                    if ((await res.json()).ok) alert('OTP sent to customer. Ask them for the code.');
+                    if ((await res.json()).ok) toast('OTP sent to customer. Ask them for the code.', 'success');
                   }}
                     className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-green-500/20 to-green-500/10 border border-green-500/30 text-green-400 font-bold hover:from-green-500/30 hover:to-green-500/20 transition-all flex items-center justify-center gap-2">
                     <MapPin size={18} /> Reached Customer
@@ -423,7 +424,7 @@ export default function DeliveryDashboard() {
   }, [activeOrder?.orderId, activeOrder?.status, startLiveTracking]);
 
   const acceptOrder = (orderId) => {
-    if (!navigator.geolocation) { alert('GPS is not available on this device.'); return; }
+    if (!navigator.geolocation) { toast('GPS is not available on this device.', 'error'); return; }
     setAcceptingId(orderId);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -431,11 +432,11 @@ export default function DeliveryDashboard() {
         try {
           const res = await fetchWithTimeout(`/api/delivery/orders/${orderId}/accept`, { method: 'PATCH', headers, credentials: 'include', body: JSON.stringify({ lat, lng }) });
           const data = await safeJson(res);
-          if (data.ok) setOrders(prev => prev.map(o => o.orderId === orderId ? data.order : o));
-          else alert(data.error || 'Could not accept order');
-        } catch { alert('Network error while accepting order'); }
+          if (data.ok) { setOrders(prev => prev.map(o => o.orderId === orderId ? data.order : o)); toast('Order accepted!', 'success'); }
+          else toast(data.error || 'Could not accept order', 'error');
+        } catch { toast('Network error while accepting order', 'error'); }
         setAcceptingId(null);
-      }, () => { alert('Could not get your location. Please enable GPS to accept the order.'); setAcceptingId(null); }
+      }, () => { toast('Could not get your location. Please enable GPS to accept the order.', 'error'); setAcceptingId(null); }
     );
   };
 
@@ -445,9 +446,9 @@ export default function DeliveryDashboard() {
     try {
       const res = await fetchWithTimeout(`/api/delivery/orders/${rejectModal}/reject`, { method: 'PATCH', headers, credentials: 'include', body: JSON.stringify({ reason: rejectReason }) });
       const data = await safeJson(res);
-      if (data.ok) setOrders(prev => prev.filter(o => o.orderId !== rejectModal));
-      else alert(data.error || 'Could not reject order');
-    } catch { alert('Network error'); }
+      if (data.ok) { setOrders(prev => prev.filter(o => o.orderId !== rejectModal)); toast('Order rejected', 'success'); }
+      else toast(data.error || 'Could not reject order', 'error');
+    } catch { toast('Network error', 'error'); }
     setRejectModal(null); setRejectReason(''); setRejectingId(null);
   };
 
@@ -470,7 +471,7 @@ export default function DeliveryDashboard() {
     try {
       const res = await fetchWithTimeout(`/api/delivery/orders/${activeOrder.orderId}/verify-otp`, { method: 'POST', headers, credentials: 'include', body: JSON.stringify({ otp: otpInput }) });
       const data = await res.json();
-      if (data.ok) { stopLiveTracking(); setActiveOrder(null); setOtpInput(''); fetchOrders(true); alert('✅ Delivery confirmed!'); }
+      if (data.ok) { stopLiveTracking(); setActiveOrder(null); setOtpInput(''); fetchOrders(true); toast('✅ Delivery confirmed!', 'success'); }
       else setOtpError(data.error || 'Wrong OTP');
     } catch { setOtpError('Network error'); }
     setOtpLoading(false);

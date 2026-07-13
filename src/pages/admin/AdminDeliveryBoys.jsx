@@ -1,4 +1,5 @@
 import { fetchWithTimeout } from '../../lib/utils';
+import { toast } from '../../components/Toast';
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Phone, Mail, Truck, Check, MapPin, ExternalLink, Clock, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,6 +18,7 @@ export default function AdminDeliveryBoys() {
   const [msgModal, setMsgModal] = useState(null); // { boyId, name } for message compose
   const [msgText, setMsgText] = useState('');
   const [msgSending, setMsgSending] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const fetchBoys = useCallback(async () => {
     setLoading(true);
@@ -75,7 +77,8 @@ export default function AdminDeliveryBoys() {
       });
       const data = await res.json();
       if (data.ok) setBoys(prev => prev.map(b => b._id === boy._id ? data.boy : b));
-    } catch {}
+      else setActionError(data.error || 'Failed to update delivery boy status');
+    } catch (err) { setActionError('Network error updating status'); }
   };
 
   const sendMessage = async () => {
@@ -92,12 +95,12 @@ export default function AdminDeliveryBoys() {
       if (data.ok) {
         setMsgModal(null);
         setMsgText('');
-        alert('Message sent!');
+        toast('Message sent!', 'success');
       } else {
-        alert('Failed: ' + data.error);
+        toast('Failed: ' + data.error, 'error');
       }
     } catch (e) {
-      alert('Error: ' + e.message);
+      toast('Error: ' + e.message, 'error');
     }
     setMsgSending(false);
   };
@@ -107,6 +110,12 @@ export default function AdminDeliveryBoys() {
 
   return (
     <div>
+      {actionError && (
+        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex justify-between items-center">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError('')} className="text-red-500 hover:text-red-700"><X size={14} /></button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-fredoka text-3xl font-bold text-gray-900">Delivery Boys</h1>

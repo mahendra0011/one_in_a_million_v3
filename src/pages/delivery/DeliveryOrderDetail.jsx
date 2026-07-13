@@ -1,4 +1,5 @@
 import { fetchWithTimeout, distanceMeters, straightLineRoute } from '../../lib/utils';
+import { toast } from '../../components/Toast';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -174,9 +175,9 @@ export default function DeliveryOrderDetail() {
       if (data.ok || res.ok) {
         setOrder(prev => prev ? { ...prev, status: newStatus } : prev);
       } else {
-        alert(data.error || 'Status update failed');
+        toast(data.error || 'Status update failed', 'error');
       }
-    } catch { alert('Network error'); }
+    } catch { toast('Network error', 'error'); }
     setStatusUpdating(false);
   };
 

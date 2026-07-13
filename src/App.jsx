@@ -9,6 +9,7 @@ import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import CartDrawer from './components/CartDrawer';
 import Customizer from './components/Customizer';
+import { ToastContainer } from './components/Toast';
 import AdminGuard from './components/AdminGuard';
 import DeliveryGuard from './components/delivery/DeliveryGuard';
 import OfflineBanner from './components/OfflineBanner';
@@ -242,10 +243,9 @@ export default function App() {
         </Suspense>
       </main>
 
-      {!hideNav && <Footer />}
-
-      {/* PWA install prompt — mobile only, shown when browser fires beforeinstallprompt */}
-      {!hideNav && <InstallPrompt />}
-    </div>
-  );
+{!hideNav && <Footer />}
+       <ToastContainer />
+       {!hideNav && <InstallPrompt />}
+     </div>
+   );
 }

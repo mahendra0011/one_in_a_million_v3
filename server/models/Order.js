@@ -28,6 +28,7 @@ const orderSchema = new mongoose.Schema({
   },
   deliveryOtp: { type: String, default: null },
   deliveryOtpExpiry: { type: Date, default: null },
+  deliveryOtpAttempts: { type: Number, default: 0 },
   otpVerified: { type: Boolean, default: false },
   loyaltyAwarded: { type: Boolean, default: false },
   pointsRedeemed: { type: Number, default: 0 },

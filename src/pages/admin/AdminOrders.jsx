@@ -80,10 +80,11 @@ export default function AdminOrders() {
   const [refreshing, setRefreshing]   = useState(false);
   const [deliveryBoys, setDeliveryBoys] = useState([]);
   const [assigning, setAssigning]     = useState(null);
-  const [selected, setSelected]       = useState(new Set());   // bulk selection
+  const [selected, setSelected]       = useState(new Set());
   const [bulkStatus, setBulkStatus]   = useState('confirmed');
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const fetchOrders = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -93,7 +94,7 @@ export default function AdminOrders() {
         const data = await res.json();
         setOrders((data.orders || data || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
       }
-    } catch { /* silent */ }
+    } catch (err) { setActionError('Failed to load orders'); }
     setLoading(false); setRefreshing(false);
   }, []);
 
@@ -134,8 +135,11 @@ export default function AdminOrders() {
       if (res.ok) {
         const data = await res.json();
         setOrders(prev => prev.map(o => (o._id === order._id) ? data.order : o));
+      } else {
+        const data = await res.json();
+        setActionError(data.error || 'Failed to update status');
       }
-    } catch { /* silent */ }
+    } catch (err) { setActionError('Network error updating status'); }
     setUpdating(null);
   };
 
@@ -150,7 +154,8 @@ export default function AdminOrders() {
       });
       const data = await res.json();
       if (data.ok) setOrders(prev => prev.map(o => (o._id === order._id) ? data.order : o));
-    } catch { /* silent */ }
+      else setActionError(data.error || 'Failed to assign delivery boy');
+    } catch (err) { setActionError('Network error assigning delivery boy'); }
     setAssigning(null);
   };
 
@@ -159,16 +164,23 @@ export default function AdminOrders() {
     if (selected.size === 0) return;
     setBulkUpdating(true);
     const ids = [...selected];
+    let hasError = false;
     await Promise.all(ids.map(id => {
       const order = orders.find(o => (o.orderId || o._id) === id);
       if (!order) return;
       return fetchWithTimeout(`/api/orders/${id}/status`, {
         method: 'PATCH', headers, credentials: 'include',
         body: JSON.stringify({ status: bulkStatus })
-      }).then(r => r.ok ? r.json() : null).then(data => {
-        if (data?.order) setOrders(prev => prev.map(o => (o._id === data.order._id) ? data.order : o));
-      }).catch(() => {});
+      }).then(async r => {
+        if (r.ok) {
+          const data = await r.json();
+          if (data?.order) setOrders(prev => prev.map(o => (o._id === data.order._id) ? data.order : o));
+        } else {
+          hasError = true;
+        }
+      }).catch(() => { hasError = true; });
     }));
+    if (hasError) setActionError('Some orders failed to update');
     setSelected(new Set());
     setBulkUpdating(false);
   };
@@ -209,6 +221,12 @@ export default function AdminOrders() {
 
   return (
     <div>
+      {actionError && (
+        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex justify-between items-center">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError('')} className="text-red-500 hover:text-red-700"><X size={14} /></button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
