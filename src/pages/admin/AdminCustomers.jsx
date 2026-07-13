@@ -100,7 +100,7 @@ export default function AdminCustomers() {
 
   const filtered = customers.filter(c => {
     const term = search.toLowerCase();
-    const matchSearch = !term || (c.name || '').toLowerCase().includes(term) || (c.email || '').toLowerCase().includes(term);
+    const matchSearch = !term || (c.name || '').toLowerCase().includes(term) || (c.email || '').toLowerCase().includes(term) || (c.phone || '').toLowerCase().includes(term);
     const matchTier   = tierFilter === 'all' || getTier(getPoints(c)) === tierFilter;
     return matchSearch && matchTier;
   });

@@ -1,20 +1,40 @@
 import { fetchWithTimeout } from '../../lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Lock, Eye, EyeOff, ShieldCheck, Check, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const validatePassword = pwd => pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /\d/.test(pwd) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd);
 
+const PasswordCheck = ({ label, met }) => (
+  <div className={`flex items-center gap-1.5 text-xs ${met ? 'text-green-400' : 'text-[#8E827B]'}`}>
+    {met ? <Check size={12} className="text-green-400" /> : <X size={12} className="text-red-400" />} {label}
+  </div>
+);
+
 export default function DeliverySetPassword() {
   const navigate = useNavigate();
-  const user = (() => { try { const u = JSON.parse(localStorage.getItem('bim_user')); return u && typeof u === 'object' ? u : null; } catch { return null; } })();
-  if (user && !user.mustSetPassword) { navigate('/delivery'); return null; }
-  const [newPassword, setNewPassword] = useState('');
+  
+  const [newPassword, setNewPassword]     = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPwd, setShowPwd] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [showPwd, setShowPwd]             = useState(false);
+  const [loading, setLoading]             = useState(false);
+  const [error, setError]                 = useState('');
+  const [ready, setReady]                 = useState(false);
+  
+  // Check user and redirect if already set up
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('bim_user'));
+      if (u && typeof u === 'object' && !u.mustSetPassword) {
+        navigate('/delivery');
+        return;
+      }
+    } catch {}
+    setReady(true);
+  }, [navigate]);
+  
+  if (!ready) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -69,6 +89,13 @@ export default function DeliverySetPassword() {
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8E827B] hover:text-white">
                 {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
+            </div>
+            <div className="mt-2 space-y-1">
+              <PasswordCheck label="8+ characters" met={newPassword.length >= 8} />
+              <PasswordCheck label="Uppercase letter" met={/[A-Z]/.test(newPassword)} />
+              <PasswordCheck label="Lowercase letter" met={/[a-z]/.test(newPassword)} />
+              <PasswordCheck label="Number" met={/\d/.test(newPassword)} />
+              <PasswordCheck label="Special symbol" met={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)} />
             </div>
           </div>
           <div>

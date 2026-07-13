@@ -1,5 +1,6 @@
 import { fetchWithTimeout } from '../../lib/utils';
 import { useState, useEffect, useCallback } from 'react';
+import { Search } from 'lucide-react';
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Tag, TrendingUp, Users, AlertCircle, X, Loader2, RefreshCw } from 'lucide-react';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
@@ -29,12 +30,23 @@ export default function AdminCoupons() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const fetchCoupons = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetchWithTimeout(API, { headers: { 'Content-Type': 'application/json' },
+      const params = new URLSearchParams();
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      const url = params.toString() ? `${API}?${params.toString()}` : API;
+      const res = await fetchWithTimeout(url, { headers: { 'Content-Type': 'application/json' },
       credentials: 'include' });
       const data = await res.json();
       if (data.ok) setCoupons(data.coupons);
@@ -44,7 +56,9 @@ export default function AdminCoupons() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch]);
+
+  useEffect(() => { queueMicrotask(fetchCoupons); }, [fetchCoupons]);
 
   useEffect(() => { queueMicrotask(fetchCoupons); }, [fetchCoupons]);
 
@@ -161,10 +175,23 @@ export default function AdminCoupons() {
             <Plus size={16} /> New Coupon
           </button>
         </div>
-      </div>
+    </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    {/* Search Bar */}
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search by coupon code, discount type, or user ID..."
+          className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-orange-500"
+        />
+      </div>
+    </div>
+
+    {/* Stats Cards */}
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'Active Coupons', value: totalActive, icon: Tag, color: 'text-green-600', bg: 'bg-green-50' },
           { label: 'Total Redemptions', value: totalUsed, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50' },

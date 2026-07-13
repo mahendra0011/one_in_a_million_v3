@@ -284,20 +284,29 @@ export default function AdminNotifications() {
                     <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{n.message}</p>
                     <div className="flex items-center gap-3 mt-1.5">
                       <span className="text-xs text-gray-400">
-                        {n.target === 'all' ? '📢 All users' : '👤 Specific user'}
-                      </span>
-                      <span className="text-xs text-gray-300">·</span>
-                      <span className="text-xs text-gray-400">
-                        {n.sentAt ? new Date(n.sentAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDelete(n._id)}
-                    className="text-gray-300 hover:text-red-400 transition-colors shrink-0 mt-0.5"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+{n.target === 'all' ? '📢 All users' : '👤 Specific user'}
+                       </span>
+                       <span className="text-xs text-gray-300">·</span>
+                       <span className="text-xs text-gray-400">
+                         {n.sentAt ? new Date(n.sentAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+                       </span>
+                     </div>
+                   </div>
+                   <div className="flex items-center gap-2 shrink-0 mt-0.5">
+                     <button
+                       onClick={() => { setTitle(n.title); setMessage(n.message); setTarget(n.target); setUserQuery(n.userQuery || ''); }}
+                       className="text-gray-300 hover:text-orange-400 transition-colors"
+                       title="Resend"
+                     >
+                       <Send size={15} />
+                     </button>
+                     <button
+                       onClick={() => handleDelete(n._id)}
+                       className="text-gray-300 hover:text-red-400 transition-colors"
+                     >
+                       <Trash2 size={15} />
+                     </button>
+                   </div>
                 </div>
               );
             })}

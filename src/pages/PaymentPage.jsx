@@ -87,6 +87,7 @@ export default function PaymentPage() {
       items,
       totals: { subtotal, discount, pointsDiscount, delivery, tax, total },
       pointsRedeemed: pointsDiscount > 0 ? pointsDiscount * 10 : 0,
+      coupon: cart.coupon || null,
       customer: {
         name: user?.name || '',
         email: user?.email || '',
@@ -108,14 +109,6 @@ export default function PaymentPage() {
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || 'Order failed');
-      if (data.ok && cart.coupon) {
-        fetchWithTimeout('/api/coupons/use', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ code: cart.coupon }),
-        }).catch(() => {});
-      }
       setLoading(false);
       setPaid(true);
       dispatch(clearCart());

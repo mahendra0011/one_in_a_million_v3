@@ -30,13 +30,14 @@ const STATUS_STYLE = {
   cancelled:          'bg-red-100 text-red-600',
 };
 
-// Available delivery boys cache
-let deliveryBoysCache = [];
+// Escape HTML to prevent XSS in print window
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
+}
 
-// ── Print helper ──────────────────────────────────────────────────────────────
 function printOrder(order) {
   const items = (order.items || []).map(i =>
-    `<tr><td>${i.name}</td><td style="text-align:center">${i.qty||i.quantity||1}</td><td style="text-align:right">₹${Math.round((i.unitPrice||i.price||0)*(i.qty||i.quantity||1))}</td></tr>`
+    `<tr><td>${escapeHtml(i.name)}</td><td style="text-align:center">${i.qty||i.quantity||1}</td><td style="text-align:right">₹${Math.round((i.unitPrice||i.price||0)*(i.qty||i.quantity||1))}</td></tr>`
   ).join('');
   const win = window.open('', '_blank', 'width=400,height=600');
   win.document.write(`
@@ -53,11 +54,11 @@ function printOrder(order) {
     </style></head><body>
     <h2>🍔 One In A Million</h2>
     <p><b>Order:</b> #${String(order.orderId||order._id).slice(-8).toUpperCase()}</p>
-    <p><b>Customer:</b> ${order.customer?.name||'—'}</p>
-    <p><b>Phone:</b> ${order.customer?.phone||'—'}</p>
+    <p><b>Customer:</b> ${escapeHtml(order.customer?.name||'—')}</p>
+    <p><b>Phone:</b> ${escapeHtml(order.customer?.phone||'—')}</p>
     <p><b>Date:</b> ${new Date(order.createdAt).toLocaleString('en-IN')}</p>
-    ${(order.customerLocation?.address || order.customer?.deliveryAddress) ? `<p><b>Address:</b> ${order.customerLocation?.address || order.customer?.deliveryAddress}</p>` : ''}
-    ${order.notes ? `<p><b>Notes:</b> ${order.notes}</p>` : ''}
+    ${(order.customerLocation?.address || order.customer?.deliveryAddress) ? `<p><b>Address:</b> ${escapeHtml(order.customerLocation?.address || order.customer?.deliveryAddress)}</p>` : ''}
+    ${order.notes ? `<p><b>Notes:</b> ${escapeHtml(order.notes)}</p>` : ''}
     <table><thead><tr><th>Item</th><th>Qty</th><th>Amt</th></tr></thead>
     <tbody>${items}</tbody></table>
     <p class="total">Total: ₹${Math.round(order.totals?.total||0)}</p>
@@ -156,7 +157,7 @@ export default function AdminOrders() {
         body: JSON.stringify({ deliveryBoyId })
       });
       const data = await res.json();
-      if (data.ok) setOrders(prev => prev.map(o => (o._id === order._id) ? data.order : o));
+      if (data.ok) setOrders(prev => prev.map(o => (o._id === order._id || o.orderId === order.orderId) ? data.order : o));
       else setActionError(data.error || 'Failed to assign delivery boy');
     } catch (err) { setActionError('Network error assigning delivery boy'); }
     setAssigning(null);

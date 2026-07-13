@@ -22,6 +22,8 @@ export default function AdminDeliveryBoys() {
   const [msgText, setMsgText] = useState('');
   const [msgSending, setMsgSending] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const fetchBoys = useCallback(async () => {
     setLoading(true);

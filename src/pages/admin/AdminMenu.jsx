@@ -29,6 +29,8 @@ export default function AdminMenu() {
   const [togglingId, setTogglingId] = useState(null);
   const [toggleError, setToggleError] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Step 17 — debounce search before hitting the backend
   useEffect(() => {
@@ -148,9 +150,10 @@ export default function AdminMenu() {
     setDeleteConfirm(null);
   };
 
-  // Toggle "available" — this is what actually controls live storefront visibility
+// Toggle "available" — this is what actually controls live storefront visibility
   const toggleActive = async (item) => {
     const id = item.id || item._id;
+    if (item.available !== false && !window.confirm(`This will hide "${item.name}" from the storefront. Continue?`)) return;
     setTogglingId(id);
     setToggleError('');
     try {
@@ -172,9 +175,43 @@ export default function AdminMenu() {
           <h1 className="font-fredoka text-3xl font-bold text-gray-900">Menu Management</h1>
           <p className="text-gray-600">{items.length} items · {items.filter(i => i.available !== false).length} active</p>
         </div>
-        <button onClick={openAdd} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-600 text-white font-bold hover:bg-orange-700 transition-colors shadow-lg shadow-orange-600/20">
-          <Plus size={18} /> Add Item
-        </button>
+        <div className="flex gap-2">
+          {selectedIds.size > 0 && (
+            <button onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-colors">
+              Clear Selection
+            </button>
+          )}
+          {selectedIds.size > 0 && (
+            <button onClick={() => {
+              if (window.confirm(`Delete ${selectedIds.size} items? This cannot be undone.`)) {
+                const handleBulkDelete = async () => {
+                  setBulkDeleting(true);
+                  try {
+                    const res = await fetchWithTimeout('/api/menu/bulk-delete', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ ids: Array.from(selectedIds) }),
+                    });
+                    const data = await res.json();
+                    if (data.ok) setItems(prev => prev.filter(i => !(i.id || i._id) in selectedIds));
+                  } catch {}
+                  setBulkDeleting(false);
+                  setSelectedIds(new Set());
+                };
+                handleBulkDelete();
+              }
+            }}
+            disabled={bulkDeleting}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20 disabled:opacity-50">
+              {bulkDeleting ? <Loader2 size={18} className="animate-spin" /> : <><Trash2 size={18} /> Delete Selected</>}
+            </button>
+          )}
+          <button onClick={openAdd} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-600 text-white font-bold hover:bg-orange-700 transition-colors shadow-lg shadow-orange-600/20">
+            <Plus size={18} /> Add Item
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -204,32 +241,44 @@ export default function AdminMenu() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wide">Item</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wide">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wide">Price</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wide">Badge</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wide">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wide">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {loading ? (
-                [1, 2, 3].map(i => (
-                  <tr key={i}>
-                    <td colSpan={6} className="px-6 py-4">
-                      <div className="h-10 bg-gray-100 rounded-lg animate-pulse" />
+               <thead>
+                 <tr className="bg-gray-50 border-b border-gray-100">
+                   <th className="px-6 py-3 text-left">
+                     <input type="checkbox" className="w-4 h-4 rounded border-gray-300" 
+                       onChange={(e) => {
+                         if (e.target.checked) {
+                           setSelectedIds(new Set(items.map(i => i.id || i._id)));
+                         } else {
+                           setSelectedIds(new Set());
+                         }
+                       }}
+                       checked={selectedIds.size === items.length && items.length > 0}
+                     />
+                   </th>
+                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wide">Item</th>
+                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wide">Category</th>
+                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wide">Price</th>
+                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wide">Badge</th>
+                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wide">Status</th>
+                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wide">Actions</th>
+                 </tr>
+               </thead>
+                <tbody className="divide-y divide-gray-50">
+                {loading ? (
+                  [1, 2, 3].map(i => (
+                    <tr key={i}>
+                      <td colSpan={7} className="px-6 py-4">
+                        <div className="h-10 bg-gray-100 rounded-lg animate-pulse" />
+                      </td>
+                    </tr>
+                  ))
+                ) : items.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                      No menu items found. Click "Add Item" to create one.
                     </td>
                   </tr>
-                ))
-              ) : items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    No menu items found. Click "Add Item" to create one.
-                  </td>
-                </tr>
-              ) : items.map(item => {
+                ) : items.map(item => {
                 const id = item.id || item._id;
                 return (
                   <tr key={id} className={`hover:bg-gray-50 transition-colors ${item.available === false ? 'opacity-50' : ''}`}>

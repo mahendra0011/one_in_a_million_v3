@@ -3,7 +3,7 @@ import { toast } from '../../components/Toast';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, MapPin, Phone, Navigation, CheckCircle2,
+  ArrowLeft, MapPin, Phone, CheckCircle2,
   Package, Clock, Radio, Bike, ShoppingBag, Truck, Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -58,6 +58,9 @@ export default function DeliveryOrderDetail() {
   const [otpError, setOtpError]     = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [markLoading, setMarkLoading] = useState(false);
+  const [resendDisabled, setResendDisabled] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const resendIntervalRef = useRef(null);
 
   const { pushLocation, isConnected } = useSocket({ joinDelivery: user?.id });
   const isConnectedRef = useRef(isConnected);
@@ -183,6 +186,7 @@ export default function DeliveryOrderDetail() {
   };
 
   const requestDeliveryOtp = async () => {
+    if (resendDisabled) return;
     setMarkLoading(true); setOtpError('');
     try {
       const res = await fetchWithTimeout(`/api/delivery/orders/${orderId}/request-delivery-otp`, {
@@ -191,6 +195,20 @@ export default function DeliveryOrderDetail() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not send OTP');
       setOtpStage(true);
+      setResendDisabled(true);
+      setResendCountdown(30);
+      if (resendIntervalRef.current) clearInterval(resendIntervalRef.current);
+      resendIntervalRef.current = setInterval(() => {
+        setResendCountdown(c => {
+          if (c <= 1) {
+            setResendDisabled(false);
+            clearInterval(resendIntervalRef.current);
+            resendIntervalRef.current = null;
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
     } catch (e) { setOtpError(e.message); }
     setMarkLoading(false);
   };
@@ -211,6 +229,12 @@ export default function DeliveryOrderDetail() {
     } catch { setOtpError('Network error'); }
     setOtpLoading(false);
   };
+
+  useEffect(() => {
+    return () => {
+      if (resendIntervalRef.current) clearInterval(resendIntervalRef.current);
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -409,7 +433,7 @@ export default function DeliveryOrderDetail() {
           </div>
         )}
 
-        {/* Mark as Delivered / OTP Flow */}
+        {/* OUT FOR DELIVERY: Reached Customer button - OTP sent to customer */}
         {!isDelivered && order.status === 'out_for_delivery' && (
           <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-4 space-y-3">
             <p className="text-[#8E827B] text-[10px] font-bold uppercase tracking-wide">Delivery Confirm Karo</p>
@@ -422,38 +446,35 @@ export default function DeliveryOrderDetail() {
                     className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-green-500 text-white font-bold hover:bg-green-600 transition-colors disabled:opacity-60"
                   >
                     <CheckCircle2 size={17} />
-                    {markLoading ? 'Customer ko OTP bheja ja raha hai...' : 'Mark as Delivered'}
+                    {markLoading ? 'Customer ko OTP bheja ja raha hai...' : 'Reached Customer'}
                   </button>
                   {otpError && <p className="text-red-400 text-xs text-center mt-2">{otpError}</p>}
                 </motion.div>
               ) : (
                 <motion.div key="otp" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
-                  <p className="text-[#A39791] text-sm font-semibold">Customer ka OTP enter karo:</p>
+                  <input
+                    value={otpInput}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setOtpInput(val);
+                      setOtpError('');
+                      if (val.length === 6) verifyOtp();
+                    }}
+                    onKeyPress={e => {
+                      if (e.key === 'Enter' && otpInput.length === 6) verifyOtp();
+                    }}
+                    placeholder="6-digit OTP"
+                    maxLength={6}
+                    autoFocus
+                    className="w-full px-3 py-3 rounded-xl bg-[#16100D] border border-white/10 text-white text-center text-xl font-bold tracking-[0.3em] focus:outline-none focus:border-[#F07D14]"
+                  />
                   {otpError && <p className="text-red-400 text-xs">{otpError}</p>}
-                  <div className="flex gap-2">
-                    <input
-                      value={otpInput}
-                      onChange={e => setOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="6-digit OTP"
-                      maxLength={6}
-                      autoFocus
-                      className="flex-1 px-3 py-3 rounded-xl bg-[#16100D] border border-white/10 text-white text-center text-xl font-bold tracking-[0.3em] focus:outline-none focus:border-[#F07D14]"
-                    />
-                    <button
-                      onClick={verifyOtp}
-                      disabled={otpInput.length !== 6 || otpLoading}
-                      className="px-4 py-3 rounded-xl bg-green-500 text-white font-bold hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                    >
-                      <CheckCircle2 size={16} />
-                      {otpLoading ? '...' : 'Verify'}
-                    </button>
-                  </div>
                   <button
                     onClick={requestDeliveryOtp}
-                    disabled={markLoading}
-                    className="text-[#F07D14] text-xs font-semibold hover:underline"
+                    disabled={resendDisabled || otpLoading}
+                    className="text-[#F07D14] text-xs font-semibold hover:underline disabled:opacity-50"
                   >
-                    OTP dobara bhejo
+                    {resendDisabled ? `OTP dobara bhejo (${resendCountdown}s)` : 'OTP dobara bhejo'}
                   </button>
                 </motion.div>
               )}

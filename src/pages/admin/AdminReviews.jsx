@@ -2,7 +2,8 @@ import { fetchWithTimeout } from '../../lib/utils';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Eye, EyeOff, Trash2, RefreshCw, Search,
-  MessageSquare, ImageIcon, ChevronDown, Loader2, CheckCircle, AlertCircle
+  MessageSquare, ImageIcon, ChevronDown, Loader2, CheckCircle, AlertCircle,
+  Star
 } from 'lucide-react';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { motion, AnimatePresence } from 'framer-motion';

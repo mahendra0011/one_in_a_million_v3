@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, TrendingUp, Package, Calendar,
-  RefreshCw, Clock, ChevronRight, Star, MapPin
+  RefreshCw, Clock, ChevronRight, MapPin
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -19,7 +19,7 @@ function formatTime(dateStr) {
   return new Date(dateStr).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 
-function StatCard({ label, count, commission, orderTotal, color, icon: Icon, delay = 0 }) {
+function StatCard({ label, count, orderTotal, color, icon: Icon, delay = 0 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -41,15 +41,9 @@ function StatCard({ label, count, commission, orderTotal, color, icon: Icon, del
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/5">
-        <div>
-          <p className="text-[#8E827B] text-[10px] uppercase tracking-wide mb-0.5">Order Value</p>
-          <p className="text-white font-bold text-sm">₹{orderTotal.toLocaleString('en-IN')}</p>
-        </div>
-        <div>
-          <p className="text-[#8E827B] text-[10px] uppercase tracking-wide mb-0.5">My Earnings</p>
-          <p className="text-[#F07D14] font-bold text-sm">₹{commission.toLocaleString('en-IN')}</p>
-        </div>
+      <div>
+        <p className="text-[#8E827B] text-[10px] uppercase tracking-wide mb-0.5">Order Value</p>
+        <p className="text-white font-bold text-sm">₹{orderTotal.toLocaleString('en-IN')}</p>
       </div>
     </motion.div>
   );
@@ -145,22 +139,9 @@ useEffect(() => {
           </div>
         ) : activeTab === 'stats' ? (
           <div className="space-y-3">
-            {/* Commission info banner */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center gap-2 bg-[#F07D14]/10 border border-[#F07D14]/20 rounded-xl px-3 py-2.5"
-            >
-              <Star size={13} className="text-[#F07D14] shrink-0" />
-              <p className="text-[#A39791] text-xs">
-                Commission rate: <span className="text-[#F07D14] font-bold">{Math.round((data.commissionRate || 0.10) * 100)}%</span> per order total
-              </p>
-            </motion.div>
-
             <StatCard
               label="Aaj"
               count={data.today.count}
-              commission={data.today.commission}
               orderTotal={data.today.orderTotal}
               color="bg-blue-500"
               icon={Clock}
@@ -169,7 +150,6 @@ useEffect(() => {
             <StatCard
               label="Is Hafte"
               count={data.thisWeek.count}
-              commission={data.thisWeek.commission}
               orderTotal={data.thisWeek.orderTotal}
               color="bg-purple-500"
               icon={Calendar}
@@ -178,7 +158,6 @@ useEffect(() => {
             <StatCard
               label="Is Mahine"
               count={data.thisMonth.count}
-              commission={data.thisMonth.commission}
               orderTotal={data.thisMonth.orderTotal}
               color="bg-[#F07D14]"
               icon={TrendingUp}
@@ -231,8 +210,7 @@ useEffect(() => {
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-[#F07D14] font-bold text-sm">+₹{order.commission}</p>
-                        <p className="text-[#8E827B] text-[11px]">of ₹{Math.round(order.total)}</p>
+                        <p className="text-white font-bold text-sm">₹{Math.round(order.total)}</p>
                       </div>
                     </div>
                     {/* Location + Rating row */}

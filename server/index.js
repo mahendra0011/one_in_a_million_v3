@@ -54,9 +54,9 @@ cloudinary.config({
 const app = express();
 
 // ─── SECURITY LOGGING HELPER ───────────────────────────────────────────────────
-const logSecurityEvent = async (type, { userId, email, details } = {}) => {
+const logSecurityEvent = async (type, { userId, email, ip, details } = {}) => {
   try {
-    await SecurityLog.create({ type, userId, email, ip: null, details });
+    await SecurityLog.create({ type, userId, email, ip: ip || null, details });
   } catch { /* silent fail */ }
 };
 
@@ -130,17 +130,17 @@ const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // +05:30 IST
 const getIstTodayStart = () => {
   const now = new Date();
   const istNow = new Date(now.getTime() + IST_OFFSET_MS);
-  return new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate()));
+  return new Date(istNow.getFullYear(), istNow.getMonth(), istNow.getDate());
 };
 const getIstWeekStart = () => {
   const today = getIstTodayStart();
-  const day = today.getUTCDay();
+  const day = today.getDay();
   return new Date(today.getTime() - (day * 24 * 60 * 60 * 1000));
 };
 const getIstMonthStart = () => {
   const now = new Date();
   const istNow = new Date(now.getTime() + IST_OFFSET_MS);
-  return new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), 1));
+  return new Date(istNow.getFullYear(), istNow.getMonth(), 1);
 };
 
 // ─── CSRF PROTECTION ───────────────────────────────────────────────────────────
@@ -598,7 +598,7 @@ app.post('/api/auth/verify-reset-otp', authLimiter, v.vVerifyResetOtp, validate,
     if (!session) return res.status(400).json({ ok: false, error: 'No OTP found. Please request again.' });
     if (new Date() > session.expiresAt) return res.status(400).json({ ok: false, error: 'OTP expired' });
     if (session.attempts >= 5) return res.status(429).json({ ok: false, error: 'Too many attempts' });
-    const valid = await bcrypt.compare(otp, session.otpHash);
+    const valid = await verifyOtp(otp, session.otpHash);
     if (!valid) {
       session.attempts += 1; await session.save();
       return res.status(400).json({ ok: false, error: 'Wrong OTP' });
@@ -639,12 +639,11 @@ app.post('/api/delivery/login', authLimiter, v.vDeliveryLogin, validate, async (
     const valid = await user.comparePassword(password);
     if (!valid) {
       await user.incLoginAttempts();
-      await logSecurityEvent('failed_login', { userId: user._id, email: user.email, details: { reason: 'invalid_password', role: 'delivery_boy' } });
+      await logSecurityEvent('failed_login', { userId: user._id, email: user.email, details: { reason: 'invalid_password', role: user.role } });
       return res.status(401).json({ ok: false, error: 'Invalid credentials' });
     }
-    
     await user.resetLoginAttempts();
-    await logSecurityEvent('login_success', { userId: user._id, email: user.email, details: { role: 'delivery_boy' } });
+    await logSecurityEvent('login_success', { userId: user._id, email: user.email, details: { role: user.role } });
     
     const token = jwt.sign({ id: user._id, phone: user.phone, role: 'delivery_boy' }, JWT_SECRET, { expiresIn: '7d' });
     setAuthCookie(res, token, 'bim_delivery_token', 7 * 24 * 60 * 60 * 1000);
@@ -833,7 +832,6 @@ app.patch('/api/delivery/my-location', liveTrackingLimiter, deliveryOnly, async 
 app.get('/api/delivery/earnings', deliveryOnly, async (req, res) => {
   try {
     const s = await getSettings();
-    const COMMISSION_RATE = s.commissionRate ?? 0.10;
     const startOfDay = getIstTodayStart();
     const startOfWeek = getIstWeekStart();
     const startOfMonth = getIstMonthStart();
@@ -850,7 +848,7 @@ app.get('/api/delivery/earnings', deliveryOnly, async (req, res) => {
     ratings.forEach(r => { ratingMap[r.orderId] = r.rating; });
     const calcEarnings = (orders) => {
       const total = orders.reduce((sum, o) => sum + (o.totals?.total || 0), 0);
-      return { count: orders.length, orderTotal: Math.round(total), commission: Math.round(total * COMMISSION_RATE) };
+      return { count: orders.length, orderTotal: Math.round(total) };
     };
     res.json({
       ok: true,
@@ -858,12 +856,11 @@ app.get('/api/delivery/earnings', deliveryOnly, async (req, res) => {
       thisWeek: calcEarnings(weekOrders),
       thisMonth: calcEarnings(monthOrders),
       recentOrders: allOrders.map(o => ({
-        orderId: o.orderId, total: o.totals?.total || 0, commission: Math.round((o.totals?.total || 0) * COMMISSION_RATE),
+        orderId: o.orderId, total: o.totals?.total || 0,
         customerName: o.customer?.name || '', deliveryAddress: o.customer?.address || o.customerLocation?.address || '',
         customerLocation: o.customerLocation?.lat ? { lat: o.customerLocation.lat, lng: o.customerLocation.lng } : null,
         deliveryRating: ratingMap[o.orderId] || null, date: o.createdAt,
       })),
-      commissionRate: COMMISSION_RATE,
     });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
@@ -1152,6 +1149,7 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
         : coupon.discountValue;
     }
     const deliveryCharge = req.body.deliveryCharge || 0;
+    const clientPointsDiscount = req.body.pointsDiscount || 0;
     // Compute tax: 5% of (subtotal - couponDiscount - pointsDiscount)
     const serverTax = Math.round((serverCalculatedTotal - couponDiscount - clientPointsDiscount) * 0.05);
     const serverCalculatedGrandTotal = serverCalculatedTotal + deliveryCharge - couponDiscount - clientPointsDiscount + serverTax;
@@ -1353,7 +1351,19 @@ app.patch('/api/orders/:id/assign', adminOnly, v.vOrderAssign, validate, async (
 // ─── ADMIN CUSTOMER MANAGEMENT ─────────────────────────────────────────────
 app.get('/api/admin/customers', adminOnly, async (req, res) => {
   try {
-    const users = await User.find({ role: 'user' }).select('name email phone loyaltyPoints isBanned createdAt isActive').sort({ createdAt: -1 });
+    const { search } = req.query;
+    const query = { role: 'user' };
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { phone: searchRegex }
+      ];
+    }
+    const users = await User.find(query)
+      .select('name email phone loyaltyPoints isBanned createdAt isActive')
+      .sort({ createdAt: -1 });
     res.json({ ok: true, customers: users });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
@@ -1492,7 +1502,16 @@ app.post('/api/reservations/cancel', authenticate, reservationLimiter, async (re
 // ─── COUPONS ──────────────────────────────────────────────────────────────────
 app.get('/api/coupons', adminOnly, async (req, res) => {
   try {
-    const coupons = await Coupon.find().sort({ createdAt: -1 });
+    const { search } = req.query;
+    let query = {};
+    if (search) {
+      query.$or = [
+        { code: { $regex: search, $options: 'i' } },
+        { discountType: { $regex: search, $options: 'i' } },
+        { userId: { $regex: search, $options: 'i' } }
+      ];
+    }
+    const coupons = await Coupon.find(query).sort({ createdAt: -1 });
     const now = new Date();
     const enriched = coupons.map(c => { const obj = c.toObject(); obj.isExpired = c.expiry ? c.expiry < now : false; obj.usageRate = c.maxUses ? Math.round((c.usedCount / c.maxUses) * 100) : null; return obj; });
     res.json({ ok: true, coupons: enriched });
@@ -1821,7 +1840,7 @@ app.get('/api/settings', async (_req, res) => {
 
 app.put('/api/settings', adminOnly, v.vUpdateSettings, validate, async (req, res) => {
   try {
-    const allowed = ['restaurantName', 'address', 'phone', 'openTime', 'closeTime', 'deliveryRadius', 'deliveryCharge', 'minOrderAmount', 'isOpen', 'emailNotif', 'smsNotif', 'newOrderSound', 'lowStockAlert', 'razorpayEnabled', 'upiEnabled', 'codEnabled', 'theme', 'allowReviews', 'maintenanceMode', 'tagline', 'email', 'gstNumber', 'closedDays', 'commissionRate'];
+    const allowed = ['restaurantName', 'address', 'phone', 'openTime', 'closeTime', 'deliveryRadius', 'deliveryCharge', 'minOrderAmount', 'isOpen', 'emailNotif', 'smsNotif', 'newOrderSound', 'lowStockAlert', 'razorpayEnabled', 'upiEnabled', 'codEnabled', 'theme', 'allowReviews', 'maintenanceMode', 'tagline', 'email', 'gstNumber', 'closedDays'];
     const update = {};
     for (const key of allowed) { if (req.body[key] !== undefined) update[key] = req.body[key]; }
     update.updatedAt = new Date();
@@ -2022,16 +2041,16 @@ app.post('/api/auth/login/unified/send-otp', authLimiter, v.vUnifiedLoginSendOtp
       return res.status(429).json({ ok: false, error: 'Account temporarily locked. Try again later.' });
     }
     
-    const valid = await user.comparePassword(password);
+const valid = await user.comparePassword(password);
     if (!valid) {
       await user.incLoginAttempts();
-      await logSecurityEvent('failed_login', { userId: user._id, email: user.email, details: { reason: 'invalid_password' } });
+      await logSecurityEvent('failed_login', { userId: user._id, email: user.email, ip: req.ip, details: { reason: 'invalid_password', role: user.role } });
       return res.status(401).json({ ok: false, error: 'Invalid credentials' });
     }
     
     // Reset login attempts on successful login
     await user.resetLoginAttempts();
-    await logSecurityEvent('login_success', { userId: user._id, email: user.email });
+    await logSecurityEvent('login_success', { userId: user._id, email: user.email, ip: req.ip });
     
     // Skip OTP for already verified users
     if (user.isEmailVerified) {
@@ -2251,11 +2270,11 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     const valid = await user.comparePassword(password);
     if (!valid) {
       await user.incLoginAttempts();
-      await logSecurityEvent('failed_login', { userId: user._id, email: user.email });
+      await logSecurityEvent('failed_login', { userId: user._id, email: user.email, ip: req.ip });
       return res.status(401).json({ ok: false, error: 'Invalid credentials' });
     }
     await user.resetLoginAttempts();
-    await logSecurityEvent('login_success', { userId: user._id, email: user.email });
+    await logSecurityEvent('login_success', { userId: user._id, email: user.email, ip: req.ip });
     const cookieMap = { admin: 'bim_admin_token', delivery_boy: 'bim_delivery_token', user: 'bim_token' };
     const cookieName = cookieMap[user.role] || 'bim_token';
     const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });

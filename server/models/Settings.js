@@ -30,7 +30,6 @@ const settingsSchema = new mongoose.Schema({
     lat: { type: Number, default: 23.1828 },
     lng: { type: Number, default: 79.9501 },
   },
-  commissionRate: { type: Number, default: 0.10 },
   updatedAt:      { type: Date, default: Date.now },
 });
 

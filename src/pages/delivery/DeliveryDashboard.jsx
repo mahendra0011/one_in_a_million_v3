@@ -15,7 +15,7 @@ async function safeJson(res) {
   try { return await res.json(); } catch { return { ok: false, error: 'Invalid response' }; }
 }
 
-const LOCATION_UPDATE_INTERVAL = 45000;
+const LOCATION_UPDATE_INTERVAL = 10000;
 
 // Module-level — was previously re-created inside the component every render,
 // which cascaded into fetchRoute/snapToRoad/startLiveTracking/pushMyLocation
@@ -517,7 +517,7 @@ export default function DeliveryDashboard() {
   const pendingOrders = orders.filter(o => o.status !== 'out_for_delivery' && o.status !== 'delivered' && o.status !== 'cancelled');
 
   // Stats
-  const totalEarnings = deliveredOrders.reduce((sum, o) => sum + (o.commission || 0), 0);
+  const totalEarnings = deliveredOrders.reduce((sum, o) => sum + (o.total || 0), 0);
   const totalDeliveries = deliveredOrders.length;
   const todayDeliveries = deliveredOrders.filter(o => {
     if (!o.date) return false;
@@ -734,7 +734,7 @@ export default function DeliveryDashboard() {
                     className="bg-gradient-to-br from-[#1A1310] to-[#16100D] rounded-3xl border border-white/10 p-5 space-y-3.5 shadow-xl">
                     <div className="flex items-start justify-between gap-3">
                       <div><p className="text-white font-black text-base">{order.orderId}</p>{order.customerName && <p className="text-[#8E827B] text-sm mt-1">{order.customerName}</p>}</div>
-                      <div className="text-right shrink-0"><p className="text-[#F07D14] font-black text-lg">+₹{order.commission}</p><p className="text-[#8E827B] text-xs">of ₹{Math.round(order.total || 0)}</p></div>
+                      <div className="text-right shrink-0"><p className="text-white font-black text-lg">₹{Math.round(order.total || 0)}</p></div>
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">
                       {order.date && (
@@ -808,7 +808,7 @@ export default function DeliveryDashboard() {
                       <p className="text-white font-bold text-sm">{order.orderId}</p>
                       <p className="text-[#8E827B] text-xs">{order.customerName || ''} · {new Date(order.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</p>
                     </div>
-                    <p className="text-[#F07D14] font-bold">+₹{order.commission}</p>
+                    <p className="text-white font-bold">₹{Math.round(order.total || 0)}</p>
                   </div>
                 ))}
               </div>
