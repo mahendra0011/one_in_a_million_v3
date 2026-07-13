@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, ShoppingBag, Settings, Heart, Star, Flame, Leaf, Plus, Minus, Share2, CheckCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useMenu } from '../hooks/useMenu';
 import SEOHead from '../components/SEOHead';
 

@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { Search, SlidersHorizontal, Flame, Leaf, ShoppingBag, Settings2, Heart, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMenu, useMenuCategories } from '../hooks/useMenu';
-import { money } from '../lib/utils';
 
 const getFavs = () => { try { return JSON.parse(localStorage.getItem('bim_favorites') || '[]'); } catch { return []; } };
 

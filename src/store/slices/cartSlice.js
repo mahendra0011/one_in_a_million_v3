@@ -22,6 +22,7 @@ const loadCart = () => {
 
 const saveCartToLS = (state) => {
   try {
+    // eslint-disable-next-line no-unused-vars -- intentionally stripped from persisted payload
     const { syncing, couponError, ...toSave } = state;
     localStorage.setItem(LS_KEY, JSON.stringify(toSave));
   } catch {}
@@ -35,7 +36,7 @@ const credentialsOpts = { credentials: 'include' };
 // ─── Thunks ───────────────────────────────────────────────────────────────────
 
 // Fetch cart from server on login / app load (merges with localStorage)
-export const fetchServerCart = createAsyncThunk('cart/fetchServer', async (_, { getState }) => {
+export const fetchServerCart = createAsyncThunk('cart/fetchServer', async () => {
   const res = await fetchWithTimeout(API, credentialsOpts);
   if (!res.ok) throw new Error('fetch failed');
   const data = await res.json();
@@ -45,6 +46,7 @@ export const fetchServerCart = createAsyncThunk('cart/fetchServer', async (_, { 
 // Push current Redux cart state to server (debounce at call-site)
 export const syncCartToServer = createAsyncThunk('cart/syncToServer', async (_, { getState }) => {
   const { cart } = getState();
+  // eslint-disable-next-line no-unused-vars -- intentionally stripped before sending to server
   const { syncing, couponError, ...payload } = cart;
   const res = await fetchWithTimeout(API, {
     method: 'PUT',

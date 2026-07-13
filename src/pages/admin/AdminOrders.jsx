@@ -1,5 +1,5 @@
 import { fetchWithTimeout } from '../../lib/utils';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, RefreshCw, Printer, Filter, ChevronDown, CheckSquare, Square, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SkeletonTable } from '../../components/admin/SkeletonRow';

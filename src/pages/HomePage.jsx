@@ -4,7 +4,6 @@ import { ArrowRight, Star, Clock, MapPin, Flame, ChefHat, Award, ShoppingBag, Th
 import { motion } from 'framer-motion';
 import { useMenu } from '../hooks/useMenu';
 import SEOHead from '../components/SEOHead';
-import { money } from '../lib/utils';
 import BurgerHero from '../components/BurgerHero';
 
 const CATEGORIES = [
@@ -28,7 +27,7 @@ const REVIEWS = [
   { name: 'Arjun M.', rating: 5, text: 'Quick delivery and fantastic flavors. The combo deals are 🔥', avatar: 'A', date: '2 weeks ago' },
 ];
 
-export default function HomePage({ onAddToCart, onCustomize }) {
+export default function HomePage({ onAddToCart }) {
   const { products } = useMenu();
   const navigate = useNavigate();
   const [featuredCat, setFeaturedCat] = useState('all');

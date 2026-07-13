@@ -1045,7 +1045,7 @@ export default function AccountPage({ initialTab }) {
       fetchOrders();
       fetchMyReviews();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isLoggedIn, tab]);
 
   // Auto-refresh orders every 30s so status updates appear without manual reload

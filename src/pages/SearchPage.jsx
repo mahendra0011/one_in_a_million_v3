@@ -1,6 +1,6 @@
 import SEOHead from '../components/SEOHead';
 import { fetchWithTimeout } from '../lib/utils';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, ShoppingBag, Settings2, Flame, Leaf, Eye, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

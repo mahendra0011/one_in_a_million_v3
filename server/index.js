@@ -41,7 +41,7 @@ import helmet from 'helmet';
 import { generalLimiter, authLimiter, otpLimiter, passwordLimiter, orderLimiter, reservationLimiter, uploadLimiter, couponLimiter, liveTrackingLimiter } from './middleware/rateLimiters.js';
 import { validate } from './middleware/validate.js';
 import * as v from './middleware/validators.js';
-import { globalErrorHandler, logError } from './middleware/errorHandler.js';
+import { globalErrorHandler } from './middleware/errorHandler.js';
 import { passwordStrength } from './middleware/validators.js';
 
 cloudinary.config({

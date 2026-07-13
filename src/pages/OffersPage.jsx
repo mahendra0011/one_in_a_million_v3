@@ -1,7 +1,7 @@
 import SEOHead from '../components/SEOHead';
 import { fetchWithTimeout } from '../lib/utils';
-import { useState, useEffect, useCallback } from 'react';
-import { Tag, Clock, Copy, Check, ArrowRight, Star, Zap, Sparkles, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Tag, Clock, Copy, Check, ArrowRight, Star, Zap, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { money } from '../lib/utils';

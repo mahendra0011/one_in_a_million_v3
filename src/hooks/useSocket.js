@@ -119,7 +119,7 @@ export function useSocket({
       setIsConnected(false);
     };
     // Only reconnect if room membership changes — NOT on callback changes (handled via refs)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [joinAdmin, joinDelivery, joinUser]);
 
   // Allow tracking a specific order (customer side). Returns an unsubscribe fn.

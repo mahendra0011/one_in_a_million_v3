@@ -3,8 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, TrendingUp, Package, Calendar,
-  RefreshCw, Clock, ChevronRight, Star, MapPin, Navigation
-} from 'lucide-react';
+  RefreshCw, Clock, ChevronRight, Star, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 function formatDate(dateStr) {

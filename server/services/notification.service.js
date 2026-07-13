@@ -66,7 +66,7 @@ function baseLayout(body) {
 /**
  * Send order confirmation email right after order is placed
  */
-export async function sendOrderConfirmation({ order, userEmail, userName, userPhone }) {
+export async function sendOrderConfirmation({ order, userEmail, userName }) {
   const cfg = STATUS_CONFIG.pending;
   const itemList = (order.items || [])
     .map(i => `<tr><td style="padding:6px 0;color:#333;">${i.name} ×${i.qty}</td><td style="padding:6px 0;text-align:right;color:#555;">₹${(i.unitPrice * i.qty).toFixed(0)}</td></tr>`)

@@ -2,7 +2,7 @@ import SEOHead from '../components/SEOHead';
 import { useRef, useEffect, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { Heart, Users, Award, ChefHat, Flame, Clock, MapPin } from 'lucide-react';
+import { Heart, Users, Award, ChefHat, Flame, Clock } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger);
 
