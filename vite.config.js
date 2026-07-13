@@ -2,56 +2,6 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import net from 'net';
-
-function backendGuard() {
-  let backendUp = false;
-  let upgradeHandlers = [];
-
-  function checkBackend(next) {
-    if (backendUp) { next(); return; }
-    const sock = new net.Socket();
-    sock.setTimeout(500);
-    sock.on('connect', () => { sock.destroy(); backendUp = true; next(); });
-    sock.on('error', () => { sock.destroy(); next(new Error('Backend not ready')); });
-    sock.on('timeout', () => { sock.destroy(); next(new Error('Backend not ready')); });
-    sock.connect(3001, 'localhost');
-  }
-
-  return {
-    name: 'backend-guard',
-    configureServer(server) {
-      upgradeHandlers = server.httpServer.listeners('upgrade');
-      server.httpServer.removeAllListeners('upgrade');
-
-      server.httpServer.on('upgrade', (req, socket, head) => {
-        if (req.url?.startsWith('/api') || req.url?.startsWith('/socket.io')) {
-          checkBackend((err) => {
-            if (err) { socket.end(); return; }
-            for (const h of upgradeHandlers) h.call(server.httpServer, req, socket, head);
-          });
-        } else {
-          for (const h of upgradeHandlers) h.call(server.httpServer, req, socket, head);
-        }
-      });
-
-      server.middlewares.use((req, res, next) => {
-        if (req.url.startsWith('/api') || req.url.startsWith('/socket.io')) {
-          checkBackend((err) => {
-            if (err) {
-              res.writeHead(502, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ ok: false, error: 'Backend not ready' }));
-              return;
-            }
-            next();
-          });
-        } else {
-          next();
-        }
-      });
-    },
-  };
-}
 
 export default defineConfig({
   plugins: [
@@ -117,7 +67,6 @@ export default defineConfig({
       },
       devOptions: { enabled: false },
     }),
-    backendGuard(),
   ],
 
   server: {
@@ -127,11 +76,29 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
+        configure: (proxy) => {
+          // Backend may still be starting up (connecting to MongoDB, etc).
+          // Swallow ECONNREFUSED/ECONNRESET here instead of letting it
+          // surface as an unhandled AggregateError in the Vite console.
+          proxy.on('error', (err, _req, res) => {
+            if (res && !res.headersSent && typeof res.writeHead === 'function') {
+              res.writeHead(502, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ ok: false, error: 'Backend not ready, retrying...' }));
+            }
+          });
+        },
       },
       '/socket.io': {
         target: 'http://localhost:3001',
         ws: true,
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err, _req, socket) => {
+            if (socket && typeof socket.end === 'function' && !socket.destroyed) {
+              socket.end();
+            }
+          });
+        },
       },
     },
   },
