@@ -50,7 +50,8 @@ export default function AdminReservations() {
       const res = await fetchWithTimeout(`/api/reservations/${id}`, { method: 'PATCH', headers, credentials: 'include',
         body: JSON.stringify({ status: newStatus }) });
       if (res.ok) {
-        setReservations(prev => prev.map(r => (r._id === id || r.id === id) ? { ...r, status: newStatus } : r));
+        const data = await res.json();
+        setReservations(prev => prev.map(r => (r._id === id || r.id === id) ? (data.reservation || { ...r, status: newStatus }) : r));
       } else {
         const data = await res.json();
         setActionError(data.error || 'Failed to update reservation');

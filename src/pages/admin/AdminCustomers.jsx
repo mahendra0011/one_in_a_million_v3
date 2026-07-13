@@ -20,6 +20,7 @@ function getTier(points = 0) {
 export default function AdminCustomers() {
   const [customers, setCustomers]       = useState([]);
   const [loading, setLoading]           = useState(true);
+  const [fetchError, setFetchError]     = useState('');
   const [search, setSearch]             = useState('');
   const [tierFilter, setTierFilter]     = useState('all');
   const [pointsModal, setPointsModal]   = useState(null);
@@ -30,13 +31,16 @@ export default function AdminCustomers() {
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
+    setFetchError('');
     try {
       const res  = await fetchWithTimeout('/api/admin/customers', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setCustomers((data.customers || []).sort((a, b) => b.loyaltyPoints - a.loyaltyPoints));
+      } else {
+        setFetchError('Failed to load customers');
       }
-    } catch { /* silent */ }
+    } catch { setFetchError('Could not load customers — check your connection'); }
     setLoading(false);
   }, []);
 
@@ -96,7 +100,7 @@ export default function AdminCustomers() {
 
   const filtered = customers.filter(c => {
     const term = search.toLowerCase();
-    const matchSearch = !term || c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term);
+    const matchSearch = !term || (c.name || '').toLowerCase().includes(term) || (c.email || '').toLowerCase().includes(term);
     const matchTier   = tierFilter === 'all' || getTier(getPoints(c)) === tierFilter;
     return matchSearch && matchTier;
   });
@@ -125,6 +129,12 @@ export default function AdminCustomers() {
         <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex justify-between items-center">
           <span>{actionError}</span>
           <button onClick={() => setActionError('')} className="text-red-500 hover:text-red-700"><X size={14} /></button>
+        </div>
+      )}
+      {fetchError && (
+        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex justify-between items-center">
+          <span>{fetchError}</span>
+          <button onClick={fetchCustomers} className="text-red-600 underline ml-auto text-sm font-bold">Retry</button>
         </div>
       )}
 

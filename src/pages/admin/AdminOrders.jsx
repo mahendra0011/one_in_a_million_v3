@@ -110,7 +110,10 @@ export default function AdminOrders() {
 
   useSocket({
     joinAdmin: true,
-    onNewOrder:     (order) => setOrders(prev => [order, ...prev]),
+    onNewOrder:     (order) => setOrders(prev => {
+      const exists = prev.some(o => o._id === order._id || o.orderId === order.orderId);
+      return exists ? prev.map(o => (o._id === order._id || o.orderId === order.orderId) ? order : o) : [order, ...prev];
+    }),
     onOrderUpdated: (order) => setOrders(prev => prev.map(o =>
       (o._id === order._id || o.orderId === order.orderId) ? order : o
     )),
@@ -119,7 +122,7 @@ export default function AdminOrders() {
     // it just wasn't wired up here before, so live positions never reached the UI.
     onDeliveryLocationUpdate: ({ orderId, lat, lng, updatedAt }) => setOrders(prev => prev.map(o =>
       (o.orderId === orderId || o._id === orderId)
-        ? { ...o, deliveryBoyLocation: { lat, lng, updatedAt } }
+        ? { ...o, deliveryBoyLocation: { lat, lng, updatedAt: updatedAt || new Date().toISOString() } }
         : o
     )),
   });
@@ -134,7 +137,7 @@ export default function AdminOrders() {
       });
       if (res.ok) {
         const data = await res.json();
-        setOrders(prev => prev.map(o => (o._id === order._id) ? data.order : o));
+        setOrders(prev => prev.map(o => (o._id === order._id || o.orderId === order.orderId) ? data.order : o));
       } else {
         const data = await res.json();
         setActionError(data.error || 'Failed to update status');
@@ -164,23 +167,24 @@ export default function AdminOrders() {
     if (selected.size === 0) return;
     setBulkUpdating(true);
     const ids = [...selected];
-    let hasError = false;
-    await Promise.all(ids.map(id => {
+    let failedCount = 0;
+    await Promise.all(ids.map(async id => {
       const order = orders.find(o => (o.orderId || o._id) === id);
       if (!order) return;
-      return fetchWithTimeout(`/api/orders/${id}/status`, {
-        method: 'PATCH', headers, credentials: 'include',
-        body: JSON.stringify({ status: bulkStatus })
-      }).then(async r => {
+      try {
+        const r = await fetchWithTimeout(`/api/orders/${id}/status`, {
+          method: 'PATCH', headers, credentials: 'include',
+          body: JSON.stringify({ status: bulkStatus })
+        });
         if (r.ok) {
           const data = await r.json();
-          if (data?.order) setOrders(prev => prev.map(o => (o._id === data.order._id) ? data.order : o));
+          if (data?.order) setOrders(prev => prev.map(o => (o._id === data.order._id || o.orderId === data.order.orderId) ? data.order : o));
         } else {
-          hasError = true;
+          failedCount++;
         }
-      }).catch(() => { hasError = true; });
+      } catch { failedCount++; }
     }));
-    if (hasError) setActionError('Some orders failed to update');
+    if (failedCount > 0) setActionError(`${failedCount} order(s) failed to update — Selection cleared, retry the failed ones`);
     setSelected(new Set());
     setBulkUpdating(false);
   };
@@ -196,7 +200,7 @@ export default function AdminOrders() {
     const assignedId   = o.assignedTo?._id || o.assignedTo || '';
     const matchDB      = deliveryBoyFilter === 'all' || assignedId === deliveryBoyFilter;
     const orderDate    = new Date(o.createdAt);
-    const matchFrom    = !dateFrom || orderDate >= new Date(dateFrom);
+    const matchFrom    = !dateFrom || orderDate >= new Date(dateFrom + 'T00:00:00');
     const matchTo      = !dateTo   || orderDate <= new Date(dateTo + 'T23:59:59');
     return matchSearch && matchStatus && matchDB && matchFrom && matchTo;
   });

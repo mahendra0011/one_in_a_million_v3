@@ -12,6 +12,7 @@ import LiveTrackingMap from '../../components/LiveTrackingMap';
 
 const STATUS_FLOW = [
   { key: 'confirmed',          label: 'Order Accepted',      icon: CheckCircle2, color: 'text-blue-400',   bg: 'bg-blue-500/20',   border: 'border-blue-500/30' },
+  { key: 'preparing',          label: 'Preparing',           icon: Clock,        color: 'text-yellow-400', bg: 'bg-yellow-500/20', border: 'border-yellow-500/30' },
   { key: 'reached_restaurant', label: 'Reached Restaurant',  icon: Bike,         color: 'text-purple-400', bg: 'bg-purple-500/20', border: 'border-purple-500/30' },
   { key: 'picked_up',          label: 'Picked Up',           icon: ShoppingBag,  color: 'text-yellow-400', bg: 'bg-yellow-500/20', border: 'border-yellow-500/30' },
   { key: 'out_for_delivery',   label: 'Out for Delivery',    icon: Truck,        color: 'text-orange-400', bg: 'bg-orange-500/20', border: 'border-orange-500/30' },
@@ -29,7 +30,7 @@ const STATUS_STYLE = {
 
 const NEXT_ACTION = {
   confirmed:          { nextStatus: 'reached_restaurant', label: 'Reached Restaurant',   icon: Bike,         color: 'text-purple-400', bg: 'bg-purple-500/20', border: 'border-purple-500/30', hoverBg: 'hover:bg-purple-500/30' },
-  preparing:          { nextStatus: 'reached_restaurant', label: 'Reached Restaurant',   icon: Bike,         color: 'text-purple-400', bg: 'bg-purple-500/20', border: 'border-purple-500/30', hoverBg: 'hover:bg-purple-500/30' },
+  preparing:          { nextStatus: 'picked_up',          label: 'Picked Up',            icon: ShoppingBag,  color: 'text-yellow-400', bg: 'bg-yellow-500/20', border: 'border-yellow-500/30', hoverBg: 'hover:bg-yellow-500/30' },
   reached_restaurant: { nextStatus: 'picked_up',          label: 'Picked Up',            icon: ShoppingBag,  color: 'text-yellow-400', bg: 'bg-yellow-500/20', border: 'border-yellow-500/30', hoverBg: 'hover:bg-yellow-500/30' },
   picked_up:          { nextStatus: 'out_for_delivery',   label: 'Out for Delivery',     icon: Truck,        color: 'text-orange-400', bg: 'bg-orange-500/20', border: 'border-orange-500/30', hoverBg: 'hover:bg-orange-500/30' },
 };

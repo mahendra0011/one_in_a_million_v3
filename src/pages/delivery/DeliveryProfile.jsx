@@ -77,9 +77,9 @@ export default function DeliveryProfile() {
     try {
       const fd = new FormData();
       fd.append('image', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: fd, credentials: 'include' });
+      const res = await fetchWithTimeout('/api/upload', { method: 'POST', body: fd, credentials: 'include' });
       const data = await res.json();
-      if (data.url) {
+      if (data.ok && data.url) {
         setForm(f => ({ ...f, profilePhoto: data.url }));
         showToast('Photo upload ho gaya!');
       } else { showToast('Photo upload fail', 'error'); }

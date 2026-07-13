@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
   isBanned: { type: Boolean, default: false },
   loyaltyPoints: { type: Number, default: 0 },
-  savedAddresses: [{ label: String, address: String, phone: String }],
+  savedAddresses: [{ label: String, address: String, phone: String, lat: Number, lng: Number }],
   vehicleType: { type: String, default: '' },
   vehicleNumber: { type: String, default: '' },
   isOnline: { type: Boolean, default: false },

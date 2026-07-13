@@ -156,7 +156,7 @@ function ActiveOrderCard({
                       const dist = calculateDistance(activeOrder.deliveryBoyLocation.lat, activeOrder.deliveryBoyLocation.lng, activeOrder.customerLocation.lat, activeOrder.customerLocation.lng);
                       if (dist > 50) { if (!confirm(`You're ${Math.round(dist)}m away. Still mark as reached?`)) return; }
                     }
-                    const res = await fetchWithTimeout(`/api/orders/${activeOrder.orderId}/generate-delivery-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+                    const res = await fetchWithTimeout(`/api/delivery/orders/${activeOrder.orderId}/request-delivery-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
                     if ((await res.json()).ok) toast('OTP sent to customer. Ask them for the code.', 'success');
                   }}
                     className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-green-500/20 to-green-500/10 border border-green-500/30 text-green-400 font-bold hover:from-green-500/30 hover:to-green-500/20 transition-all flex items-center justify-center gap-2">
@@ -191,7 +191,7 @@ function ActiveOrderCard({
 export default function DeliveryDashboard() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const user = (() => { try { return JSON.parse(localStorage.getItem('bim_user') || 'null'); } catch { return null; }})();
+  const user = (() => { try { const u = JSON.parse(localStorage.getItem('bim_user')); return u && typeof u === 'object' ? u : null; } catch { return null; }})();
 
   const [orders, setOrders] = useState([]);
   const [deliveredOrders, setDeliveredOrders] = useState([]);
@@ -255,7 +255,7 @@ export default function DeliveryDashboard() {
         const active = data.orders.find(o => o.status === 'out_for_delivery');
         if (active) setActiveOrder(active);
       }
-    } catch (err) { if (err.message !== 'Request timeout') console.error('Failed to fetch orders:', err); }
+    } catch (err) { if (err?.message !== 'Request timeout') console.error('Failed to fetch orders:', err); }
     try {
       const res2 = await fetchWithTimeout('/api/delivery/earnings', { credentials: 'include' });
       const data2 = await safeJson(res2);
@@ -343,7 +343,8 @@ export default function DeliveryDashboard() {
   }, [headers]);
 
   const startLiveTracking = useCallback((orderId) => {
-    if (!navigator.geolocation || watchIdRef.current != null) return;
+    if (!navigator.geolocation) return;
+    if (watchIdRef.current != null) return;
     const updateCountRef = { current: 0 };
     watchIdRef.current = navigator.geolocation.watchPosition(
       async (pos) => {
@@ -500,7 +501,7 @@ export default function DeliveryDashboard() {
     setPhotoUploading(false);
   };
 
-  const pendingOrders = orders.filter(o => !(o.status === 'out_for_delivery'));
+  const pendingOrders = orders.filter(o => o.status !== 'out_for_delivery' && o.status !== 'delivered' && o.status !== 'cancelled');
 
   // Stats
   const totalEarnings = deliveredOrders.reduce((sum, o) => sum + (o.commission || 0), 0);
@@ -897,6 +898,7 @@ export default function DeliveryDashboard() {
                   </button>
                 ))}
               </div>
+              {!rejectReason && <p className="text-xs text-red-400 mt-1">Please select a reason first</p>}
               <button onClick={rejectOrder} disabled={!rejectReason || rejectingId === rejectModal}
                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-red-500 to-red-600 text-white font-bold hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50 shadow-lg flex items-center justify-center gap-2">
                 <AlertTriangle size={18} /> {rejectingId === rejectModal ? 'Rejecting...' : 'Confirm Reject'}

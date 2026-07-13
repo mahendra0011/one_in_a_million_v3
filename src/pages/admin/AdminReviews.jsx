@@ -1,10 +1,11 @@
 import { fetchWithTimeout } from '../../lib/utils';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Star, Eye, EyeOff, Trash2, RefreshCw, Search, Filter,
-  MessageSquare, ImageIcon, ChevronDown, Loader2, AlertTriangle, CheckCircle
+  Eye, EyeOff, Trash2, RefreshCw, Search,
+  MessageSquare, ImageIcon, ChevronDown, Loader2, CheckCircle, AlertCircle
 } from 'lucide-react';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { motion, AnimatePresence } from 'framer-motion';
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -57,16 +58,17 @@ function PhotoGallery({ photos }) {
 }
 
 export default function AdminReviews() {
-  const [reviews, setReviews]     = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [total, setTotal]         = useState(0);
-  const [page, setPage]           = useState(1);
-  const [hasMore, setHasMore]     = useState(false);
-  const [filter, setFilter]       = useState('all');   // all | visible | hidden
-  const [search, setSearch]       = useState('');
-  const [actionLoading, setActionLoading] = useState({});
-  const [toast, setToast]         = useState('');
-  const LIMIT = 20;
+   const [reviews, setReviews]     = useState([]);
+   const [loading, setLoading]     = useState(true);
+   const [total, setTotal]         = useState(0);
+   const [page, setPage]           = useState(1);
+   const [hasMore, setHasMore]     = useState(false);
+   const [filter, setFilter]       = useState('all');   // all | visible | hidden
+   const [search, setSearch]       = useState('');
+   const [actionLoading, setActionLoading] = useState({});
+   const [toast, setToast]         = useState('');
+   const [confirmState, setConfirmState] = useState({ open: false, review: null });
+   const LIMIT = 20;
 
   const showToast = (msg) => {
     setToast(msg);
@@ -115,25 +117,30 @@ export default function AdminReviews() {
     setActionLoading(p => ({ ...p, [review._id]: null }));
   };
 
-  const deleteReview = async (review) => {
-    if (!window.confirm('Delete this review permanently?')) return;
-    setActionLoading(p => ({ ...p, [review._id]: 'del' }));
-    try {
-      const res  = await fetchWithTimeout(`/api/reviews/${review._id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setReviews(prev => prev.filter(r => r._id !== review._id));
-        setTotal(t => t - 1);
-        showToast('🗑️ Review deleted');
-      }
-    } catch {}
-    setActionLoading(p => ({ ...p, [review._id]: null }));
-  };
+const deleteReview = async (review) => {
+     setConfirmState({ open: true, review });
+   };
 
-  // Client-side search filter
+   const confirmDelete = async () => {
+     const review = confirmState.review;
+     setConfirmState({ open: false, review: null });
+     setActionLoading(p => ({ ...p, [review._id]: 'del' }));
+     try {
+       const res  = await fetchWithTimeout(`/api/reviews/${review._id}`, {
+         method: 'DELETE',
+         credentials: 'include',
+       });
+       const data = await res.json();
+       if (data.ok) {
+         setReviews(prev => prev.filter(r => r._id !== review._id));
+         setTotal(t => t - 1);
+         showToast('🗑️ Review deleted');
+       }
+     } catch {}
+     setActionLoading(p => ({ ...p, [review._id]: null }));
+   };
+
+// Client-side search filter
   const filtered = search.trim()
     ? reviews.filter(r =>
         r.userId?.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -142,23 +149,57 @@ export default function AdminReviews() {
       )
     : reviews;
 
-  const stats = {
-    total,
-    visible: reviews.filter(r => r.isVisible).length,
-    hidden: reviews.filter(r => !r.isVisible).length,
-    avg: reviews.length
-      ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
-      : '—',
-  };
-
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <div className="fixed top-6 right-6 z-50 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-xl text-sm font-medium animate-pulse">
-          {toast}
-        </div>
-      )}
+{/* Toast */}
+       {toast && (
+         <div className="fixed top-6 right-6 z-50 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-xl text-sm font-medium animate-pulse">
+           {toast}
+         </div>
+       )}
+
+       {/* Confirm Modal */}
+       <AnimatePresence>
+         {confirmState.open && (
+           <motion.div
+             initial={{ opacity: 0 }}
+             animate={{ opacity: 1 }}
+             exit={{ opacity: 0 }}
+             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+           >
+             <motion.div
+               initial={{ scale: 0.9, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               exit={{ scale: 0.9, opacity: 0 }}
+               className="bg-white rounded-2xl p-5 max-w-sm w-full"
+             >
+               <div className="flex items-center gap-3 mb-3">
+                 <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+                   <AlertCircle size={20} className="text-red-600" />
+                 </div>
+                 <h3 className="text-lg font-bold text-gray-900">Delete Review?</h3>
+               </div>
+               <p className="text-gray-500 text-sm mb-4">
+                 This review will be permanently deleted. This action cannot be undone.
+               </p>
+               <div className="flex gap-2">
+                 <button
+                   onClick={() => setConfirmState({ open: false, review: null })}
+                   className="flex-1 px-4 py-2 rounded-xl text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                 >
+                   Cancel
+                 </button>
+                 <button
+                   onClick={confirmDelete}
+                   className="flex-1 px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-colors"
+                 >
+                   Delete
+                 </button>
+               </div>
+             </motion.div>
+           </motion.div>
+         )}
+       </AnimatePresence>
 
       {/* Header */}
       <div className="flex items-center justify-between">

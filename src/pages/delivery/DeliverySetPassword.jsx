@@ -8,6 +8,8 @@ const validatePassword = pwd => pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.
 
 export default function DeliverySetPassword() {
   const navigate = useNavigate();
+  const user = (() => { try { const u = JSON.parse(localStorage.getItem('bim_user')); return u && typeof u === 'object' ? u : null; } catch { return null; } })();
+  if (user && !user.mustSetPassword) { navigate('/delivery'); return null; }
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);

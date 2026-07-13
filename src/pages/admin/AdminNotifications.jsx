@@ -284,11 +284,11 @@ export default function AdminNotifications() {
                     <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{n.message}</p>
                     <div className="flex items-center gap-3 mt-1.5">
                       <span className="text-xs text-gray-400">
-                        {n.target === 'all' ? '📢 All users' : `👤 ${n.userQuery}`}
+                        {n.target === 'all' ? '📢 All users' : '👤 Specific user'}
                       </span>
                       <span className="text-xs text-gray-300">·</span>
                       <span className="text-xs text-gray-400">
-                        {n.sentAt ? new Date(n.sentAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'Just now'}
+                        {n.sentAt ? new Date(n.sentAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
                       </span>
                     </div>
                   </div>

@@ -36,6 +36,7 @@ const orderSchema = new mongoose.Schema({
   assignedAt: { type: Date, default: null },
   rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   rejectReason: { type: String, default: null },
+  coupon: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 

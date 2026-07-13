@@ -3,8 +3,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, TrendingUp, Package, Calendar,
-  RefreshCw, Clock, ChevronRight, Star, MapPin } from 'lucide-react';
+  RefreshCw, Clock, ChevronRight, Star, MapPin
+} from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -55,7 +57,7 @@ function StatCard({ label, count, commission, orderTotal, color, icon: Icon, del
 
 export default function DeliveryEarnings() {
   const navigate = useNavigate();
-  const user = (() => { try { return JSON.parse(localStorage.getItem('bim_user') || 'null'); } catch { return null; } })();
+  const user = (() => { try { const u = JSON.parse(localStorage.getItem('bim_user')); return u && typeof u === 'object' ? u : null; } catch { return null; } })();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -73,10 +75,13 @@ export default function DeliveryEarnings() {
     setRefreshing(false);
   }, []);
 
-  useEffect(() => {
-    if (!user) { navigate('/login'); return; }
-    queueMicrotask(fetchEarnings);
-  }, []);
+useEffect(() => {
+     if (!user) { navigate('/login'); return; }
+     queueMicrotask(fetchEarnings);
+   }, [fetchEarnings, navigate, user]);
+
+   // Auto-refresh every 30 s + socket-triggered refresh when orders/status change
+   useAutoRefresh({ fetchFn: fetchEarnings, interval: 30_000, enabled: !!user });
 
   return (
     <div className="min-h-screen bg-[#0A0604]">

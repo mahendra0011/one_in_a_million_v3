@@ -86,7 +86,7 @@ export default function PaymentPage() {
     const orderPayload = {
       items,
       totals: { subtotal, discount, pointsDiscount, delivery, tax, total },
-      pointsRedeemed: redeemPoints ? availablePoints : 0,
+      pointsRedeemed: pointsDiscount > 0 ? pointsDiscount * 10 : 0,
       customer: {
         name: user?.name || '',
         email: user?.email || '',

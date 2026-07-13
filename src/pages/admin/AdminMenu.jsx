@@ -27,6 +27,8 @@ export default function AdminMenu() {
   const [uploading, setUploading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
+  const [toggleError, setToggleError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   // Step 17 — debounce search before hitting the backend
   useEffect(() => {
@@ -136,10 +138,13 @@ export default function AdminMenu() {
   };
 
   const handleDelete = async (id) => {
+    setDeleteError('');
     try {
-      await fetchWithTimeout(`/api/menu/${id}`, { method: 'DELETE', credentials: 'include' });
+      const res = await fetchWithTimeout(`/api/menu/${id}`, { method: 'DELETE', credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Delete failed');
       setItems(prev => prev.filter(item => (item.id || item._id) !== id));
-    } catch { /* silent */ }
+    } catch (e) { setDeleteError(e.message || 'Could not delete item'); }
     setDeleteConfirm(null);
   };
 
@@ -147,6 +152,7 @@ export default function AdminMenu() {
   const toggleActive = async (item) => {
     const id = item.id || item._id;
     setTogglingId(id);
+    setToggleError('');
     try {
       const res = await fetchWithTimeout(`/api/menu/${id}`, {
         method: 'PUT', headers, credentials: 'include',
@@ -154,7 +160,8 @@ export default function AdminMenu() {
       });
       const data = await res.json();
       if (data.ok) setItems(prev => prev.map(i => (i.id || i._id) === id ? data.item : i));
-    } catch { /* silent */ }
+      else setToggleError(data.error || 'Failed to toggle');
+    } catch { setToggleError('Network error'); }
     setTogglingId(null);
   };
 

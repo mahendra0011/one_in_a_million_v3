@@ -832,11 +832,12 @@ app.patch('/api/delivery/my-location', liveTrackingLimiter, deliveryOnly, async 
 // ─── DELIVERY: EARNINGS ──────────────────────────────────────────────────────
 app.get('/api/delivery/earnings', deliveryOnly, async (req, res) => {
   try {
+    const s = await getSettings();
+    const COMMISSION_RATE = s.commissionRate ?? 0.10;
     const startOfDay = getIstTodayStart();
     const startOfWeek = getIstWeekStart();
     const startOfMonth = getIstMonthStart();
     const baseFilter = { assignedTo: req.user.id, status: 'delivered' };
-    const COMMISSION_RATE = 0.10;
     const [todayOrders, weekOrders, monthOrders, allOrders] = await Promise.all([
       Order.find({ ...baseFilter, createdAt: { $gte: startOfDay } }).select('totals createdAt orderId'),
       Order.find({ ...baseFilter, createdAt: { $gte: startOfWeek } }).select('totals createdAt orderId'),
@@ -1056,10 +1057,22 @@ app.delete('/api/menu/:id', adminOnly, v.vMenuIdParam, validate, async (req, res
 // ─── ORDERS ROUTES ────────────────────────────────────────────────────────────
 app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, async (req, res) => {
   try {
-    // Check if restaurant is open for orders
     const s = await getSettings();
     if (s.isOpen === false) {
       return res.status(503).json({ ok: false, error: 'Restaurant is currently closed. Please try again during operating hours.' });
+    }
+    // Check operating hours
+    const now = new Date();
+    const currentHours = now.getHours() * 100 + now.getMinutes();
+    const openTimeNum = parseInt((s.openTime || '11:00').replace(':', ''), 10);
+    const closeTimeNum = parseInt((s.closeTime || '23:00').replace(':', ''), 10);
+    if (currentHours < openTimeNum || currentHours > closeTimeNum) {
+      return res.status(503).json({ ok: false, error: `Restaurant open ${s.openTime || '11:00'}–${s.closeTime || '23:00'}` });
+    }
+    // Check closed days
+    const todayDay = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][now.getDay()];
+    if (s.closedDays?.includes(todayDay)) {
+      return res.status(503).json({ ok: false, error: 'Restaurant is closed today. Please order on another day.' });
     }
     // Check maintenance mode
     if (s.maintenanceMode === true) {
@@ -1074,6 +1087,18 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
       if (!customerLocation.address) return res.status(400).json({ ok: false, error: 'Delivery address required' });
       if (customerLocation.lat == null || customerLocation.lng == null) return res.status(400).json({ ok: false, error: 'Delivery location coordinates required — please use "My Location" button or select from search results' });
       if (!customerLocation.landmark?.trim()) return res.status(400).json({ ok: false, error: 'Flat / house number / landmark details required' });
+      // Check delivery radius
+      if (s.restaurantLocation?.lat && s.restaurantLocation?.lng && s.deliveryRadius) {
+        const R = 6371e3;
+        const toRad = (x) => (x * Math.PI) / 180;
+        const dLat = toRad(customerLocation.lat - s.restaurantLocation.lat);
+        const dLng = toRad(customerLocation.lng - s.restaurantLocation.lng);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(s.restaurantLocation.lat)) * Math.cos(toRad(customerLocation.lat)) * Math.sin(dLng / 2) ** 2;
+        const distanceKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) / 1000;
+        if (distanceKm > s.deliveryRadius) {
+          return res.status(400).json({ ok: false, error: `Delivery not available beyond ${s.deliveryRadius} km from restaurant` });
+        }
+      }
     }
     // Check if authenticated user is banned
     let user = null;
@@ -1093,6 +1118,10 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
       const menuItem = await MenuItem.findOne({ id: item.productId });
       if (!menuItem || !menuItem.available) {
         return res.status(400).json({ ok: false, error: `Item not available: ${item.productId}` });
+      }
+      // Check stock if tracked (prevent ordering out-of-stock items)
+      if (menuItem.stock !== null && menuItem.stock < item.qty) {
+        return res.status(400).json({ ok: false, error: `Only ${menuItem.stock} units left for ${menuItem.name}` });
       }
       const itemTotal = menuItem.price * item.qty;
       serverCalculatedTotal += itemTotal;
@@ -1119,8 +1148,10 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
         : coupon.discountValue;
     }
     const deliveryCharge = req.body.deliveryCharge || 0;
-    serverCalculatedTotal += deliveryCharge;
-    const serverCalculatedGrandTotal = serverCalculatedTotal - couponDiscount;
+    // Compute tax: 5% of (subtotal - couponDiscount - pointsDiscount)
+    const clientPointsDiscount = req.body.totals?.pointsDiscount || 0;
+    const serverTax = Math.round((serverCalculatedTotal - couponDiscount - clientPointsDiscount) * 0.05);
+    const serverCalculatedGrandTotal = serverCalculatedTotal + deliveryCharge - couponDiscount - clientPointsDiscount + serverTax;
     // Validate minOrderAmount from settings
     const minOrderAmount = s.minOrderAmount || 0;
     if (serverCalculatedGrandTotal < minOrderAmount) {
@@ -1128,13 +1159,11 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
     }
     // Validate client-sent totals match server calculations (allow small rounding diff)
     const clientTotal = req.body.totals?.total || 0;
-    if (Math.abs(clientTotal - serverCalculatedGrandTotal) > 1) {
+    if (Math.abs(clientTotal - serverCalculatedGrandTotal) > 2) {
       return res.status(400).json({ ok: false, error: 'Price mismatch detected. Please refresh and try again.' });
     }
-    // Clamp redeemed points server-side
-    const pointsRedeemed = user && req.body.pointsRedeemed > 0
-      ? Math.min(Math.floor(req.body.pointsRedeemed), user.loyaltyPoints || 0)
-      : 0;
+    // Clamp redeemed points server-side - only deduct points that gave actual discount
+    const pointsRedeemed = clientPointsDiscount > 0 ? clientPointsDiscount * 10 : 0;
     const order = await Order.create({
       userId: req.user.id,
       ...req.body,
@@ -1143,6 +1172,7 @@ app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, as
         subtotal: serverCalculatedTotal - deliveryCharge,
         delivery: deliveryCharge,
         discount: couponDiscount,
+        tax: serverTax,
         total: serverCalculatedGrandTotal
       },
       pointsRedeemed,
@@ -1231,6 +1261,7 @@ app.patch('/api/orders/:id/status', adminOnly, v.vOrderUpdateStatus, validate, a
 });
 
 app.post('/api/orders/:id/cancel', authenticate, async (req, res) => {
+  const session = await mongoose.startSession();
   try {
     const order = await Order.findOne({ orderId: req.params.id });
     if (!order) return res.status(404).json({ ok: false, error: 'Order not found' });
@@ -1240,14 +1271,28 @@ app.post('/api/orders/:id/cancel', authenticate, async (req, res) => {
     if (order.status !== 'pending' && order.status !== 'confirmed') {
       return res.status(400).json({ ok: false, error: 'Order cannot be cancelled at this stage' });
     }
-    const update = { status: 'cancelled' };
-    await Order.findOneAndUpdate({ orderId: req.params.id }, update);
+    await session.withTransaction(async () => {
+      // Rollback coupon usage
+      if (order.coupon) {
+        await Coupon.findOneAndUpdate(
+          { code: order.coupon.toUpperCase() },
+          { $inc: { usedCount: -1 } }
+        ).session(session);
+      }
+      // Refund loyalty points
+      if (order.pointsRedeemed > 0 && order.userId) {
+        await User.findByIdAndUpdate(order.userId, { $inc: { loyaltyPoints: order.pointsRedeemed } }).session(session);
+      }
+      // Cancel order
+      await Order.findOneAndUpdate({ orderId: req.params.id }, { status: 'cancelled' }).session(session);
+    });
     if (order.assignedTo) {
       createDeliveryNotif({ deliveryBoyId: order.assignedTo, type: 'order_cancelled', title: '❌ Order Cancel Hua', body: `Order ${order.orderId} customer ne cancel kar diya.`, data: { orderId: order.orderId } });
     }
     createNotification({ userId: order.userId, type: 'order_status', title: '❌ Order Cancelled', body: `Your order ${order.orderId} has been cancelled.`, data: { orderId: order.orderId, status: 'cancelled' } });
     res.json({ ok: true, message: 'Order cancelled' });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+  finally { await session.endSession(); }
 });
 
 app.patch('/api/orders/:id/assign', adminOnly, v.vOrderAssign, validate, async (req, res) => {
@@ -1744,7 +1789,7 @@ app.get('/api/settings', async (_req, res) => {
 
 app.put('/api/settings', adminOnly, v.vUpdateSettings, validate, async (req, res) => {
   try {
-    const allowed = ['restaurantName', 'address', 'phone', 'openTime', 'closeTime', 'deliveryRadius', 'deliveryCharge', 'minOrderAmount', 'isOpen', 'emailNotif', 'smsNotif', 'newOrderSound', 'lowStockAlert', 'razorpayEnabled', 'upiEnabled', 'codEnabled', 'theme', 'allowReviews', 'maintenanceMode', 'tagline', 'email', 'gstNumber', 'closedDays'];
+    const allowed = ['restaurantName', 'address', 'phone', 'openTime', 'closeTime', 'deliveryRadius', 'deliveryCharge', 'minOrderAmount', 'isOpen', 'emailNotif', 'smsNotif', 'newOrderSound', 'lowStockAlert', 'razorpayEnabled', 'upiEnabled', 'codEnabled', 'theme', 'allowReviews', 'maintenanceMode', 'tagline', 'email', 'gstNumber', 'closedDays', 'commissionRate'];
     const update = {};
     for (const key of allowed) { if (req.body[key] !== undefined) update[key] = req.body[key]; }
     update.updatedAt = new Date();

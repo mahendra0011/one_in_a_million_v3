@@ -12,7 +12,7 @@ const DAYS   = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const BarChart = ({ data, labels, color, label }) => {
-  const max = Math.max(...data, 1);
+  const max = Math.max(...(data || []), 1);
   return (
     <div className="flex items-end gap-2 h-40">
       {data.map((val, i) => (

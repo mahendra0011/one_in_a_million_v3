@@ -91,7 +91,7 @@ function PeakHoursChart({ data }) {
 function Delta({ current, previous, prefix = '', suffix = '' }) {
   if (!previous && !current) return null;
   const diff = current - previous;
-  const pct  = previous > 0 ? Math.round((diff / previous) * 100) : null;
+  const pct  = previous > 0 && previous !== undefined ? Math.round((diff / previous) * 100) : null;
   if (diff === 0) return <span className="text-xs text-gray-400 flex items-center gap-0.5"><Minus size={11} /> Same as yesterday</span>;
   const up = diff > 0;
   return (
@@ -129,15 +129,19 @@ export default function AdminDashboard() {
   const [analytics, setAnalytics] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const [liveToast, setLiveToast] = useState(null);
   const [weekMode, setWeekMode] = useState('revenue'); // 'revenue' | 'orders'
 
   const fetchAll = useCallback(async () => {
+    setFetchError('');
     const aRes = await fetchWithTimeout('/api/analytics', { credentials: 'include' }).catch(() => null);
     if (aRes?.ok) {
       const d = await aRes.json();
       setAnalytics(d);
       setRecentOrders((d.recentOrders || []).slice(0, 8));
+    } else {
+      setFetchError('Could not load analytics — check your connection');
     }
     setLoading(false);
   }, []);
@@ -153,7 +157,10 @@ export default function AdminDashboard() {
     joinAdmin: true,
     onNewOrder: (order) => {
       showToast(`🛒 New order from ${order.customer?.name || 'customer'}!`);
-      setRecentOrders(prev => [order, ...prev].slice(0, 8));
+      setRecentOrders(prev => {
+        const exists = prev.some(o => o._id === order._id || o.orderId === order.orderId);
+        return exists ? prev.map(o => (o._id === order._id || o.orderId === order.orderId) ? order : o) : [order, ...prev].slice(0, 8);
+      });
       setAnalytics(prev => prev ? {
         ...prev,
         totalOrders:    (prev.totalOrders    || 0) + 1,
@@ -248,7 +255,17 @@ export default function AdminDashboard() {
           <p className="text-gray-500 text-sm mt-0.5">Real-time overview · {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         </div>
         {loading && <span className="text-sm text-gray-400 animate-pulse">Loading...</span>}
+        {!loading && fetchError && <span className="text-sm text-red-500 font-semibold">⚠️ Connection issue</span>}
       </div>
+
+      {/* ── Fetch Error Banner ────────────────────────────────────────────── */}
+      {!loading && fetchError && (
+        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3">
+          <AlertTriangle size={18} className="text-red-500 shrink-0" />
+          <p className="text-sm text-red-700 font-semibold">{fetchError}</p>
+          <button onClick={fetchAll} className="ml-auto text-xs font-bold text-red-600 underline whitespace-nowrap">Retry</button>
+        </div>
+      )}
 
 {/* ── PENDING ALERT ──────────────────────────────────────────────────── */}
        {!loading && pendingCount >= 3 && (

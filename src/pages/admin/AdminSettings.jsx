@@ -18,6 +18,7 @@ export default function AdminSettings() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState('');
+  const [fetchError, setFetchError] = useState('');
 
   const [settings, setSettings] = useState({
     restaurantName: '',
@@ -41,7 +42,7 @@ export default function AdminSettings() {
     maintenanceMode: false,
     tagline: 'Gourmet burgers made fresh to order',
     email: 'hello@oneinamillion.com',
-    gstNumber: 'MP23XXXXXX',
+    gstNumber: '',
     closedDays: [],
   });
 
@@ -80,7 +81,7 @@ export default function AdminSettings() {
             });
           }
         })
-        .catch(() => {})
+        .catch(() => setFetchError('Could not load settings — using defaults'))
         .finally(() => setLoading(false));
     });
   }, []);
@@ -141,6 +142,18 @@ export default function AdminSettings() {
       <div className="flex items-center justify-center h-64 text-gray-400">
         <Loader2 className="animate-spin mr-2" size={20} />
         Loading settings…
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+          <span>⚠️ {fetchError}</span>
+          <button onClick={() => { setFetchError(''); setLoading(true); window.location.reload(); }} 
+            className="ml-auto text-xs font-bold text-red-600 underline">Retry</button>
+        </div>
       </div>
     );
   }

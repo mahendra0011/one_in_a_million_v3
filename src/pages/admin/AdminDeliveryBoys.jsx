@@ -1,7 +1,9 @@
 import { fetchWithTimeout } from '../../lib/utils';
 import { toast } from '../../components/Toast';
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Phone, Mail, Truck, Check, MapPin, ExternalLink, Clock, MessageSquare } from 'lucide-react';
+import {
+  Plus, X, Phone, Mail, Truck, Check, MapPin, ExternalLink, Clock, MessageSquare
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SkeletonTable } from '../../components/admin/SkeletonRow';
 import { useSocket } from '../../hooks/useSocket';
@@ -166,7 +168,7 @@ export default function AdminDeliveryBoys() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1 text-sm text-gray-700"><Phone size={13} className="text-gray-400" /> {boy.phone}</div>
-                      {boy.email && !boy.email.endsWith('@delivery.bim') && (
+                      {boy.email && !(!boy.email || boy.email.endsWith('@delivery.bim')) && (
                         <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5"><Mail size={12} className="text-gray-400" /> {boy.email}</div>
                       )}
                     </td>

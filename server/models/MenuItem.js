@@ -12,6 +12,8 @@ const menuItemSchema = new mongoose.Schema({
   veg: { type: Boolean, default: false },
   desc: { type: String, default: '' },
   available: { type: Boolean, default: true },
+  // Stock tracking for low stock alerts
+  stock: { type: Number, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 
