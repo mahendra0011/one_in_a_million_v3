@@ -74,7 +74,7 @@ export default function DeliveryOrderDetail() {
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
-    fetchOrder();
+    queueMicrotask(fetchOrder);
   }, [fetchOrder]);
 
   const fetchRoute = useCallback(async (start, end) => {
@@ -161,7 +161,7 @@ export default function DeliveryOrderDetail() {
         }
       }
     }
-    if (order?.status === 'delivered') stopLiveTracking();
+    if (order?.status === 'delivered') queueMicrotask(stopLiveTracking);
   }, [order?.status, startLiveTracking, stopLiveTracking, order?.deliveryBoyLocation, order?.customerLocation, fetchRoute]);
 
   const updateStatus = async (newStatus) => {

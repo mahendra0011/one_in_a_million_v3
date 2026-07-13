@@ -16,7 +16,7 @@
  *   - 'delivery-location-update'  → order-<orderId> room + admin room ({ lat, lng, updatedAt })
  *   - 'notification'              → user-<userId> room ({ type, title, body, data, … }) [Step 21]
  */
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react';
 
 function getSocketUrl() {
   // In dev: vite proxy handles /api, socket is on same origin
@@ -43,10 +43,12 @@ export function useSocket({
   // Store callbacks in refs so socket listeners always call the latest version
   // without needing to reconnect the socket when callbacks change.
   const cbRefs = useRef({});
-  cbRefs.current = {
-    onNewOrder, onNewReservation, onOrderUpdated, onNewAssignment,
-    onStatusUpdate, onDeliveryLocationUpdate, onNotification, onDeliveryNotification,
-  };
+  useLayoutEffect(() => {
+    cbRefs.current = {
+      onNewOrder, onNewReservation, onOrderUpdated, onNewAssignment,
+      onStatusUpdate, onDeliveryLocationUpdate, onNotification, onDeliveryNotification,
+    };
+  });
 
   // Every order trackOrder() has been asked to watch, so we can (re)join those
   // rooms whenever the socket (re)connects. Socket.io drops room membership on

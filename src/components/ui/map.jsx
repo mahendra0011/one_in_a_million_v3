@@ -153,12 +153,16 @@ export function MapMarker({
   const marker = useMemo(() => {
     const el = document.createElement('div');
     const m = new maplibregl.Marker({ ...opts, element: el, draggable }).setLngLat([longitude, latitude]);
+    /* eslint-disable react-hooks/refs -- cbRef.current is only read inside these
+       DOM/map event callbacks, which fire later (not during this render). This is
+       the standard "latest ref" pattern kept in sync via useLayoutEffect above. */
     el.addEventListener('click', (e) => cbRef.current.onClick?.(e));
     el.addEventListener('mouseenter', (e) => cbRef.current.onMouseEnter?.(e));
     el.addEventListener('mouseleave', (e) => cbRef.current.onMouseLeave?.(e));
     m.on('dragstart', () => { const l = m.getLngLat(); cbRef.current.onDragStart?.({ lng: l.lng, lat: l.lat }); });
     m.on('drag', () => { const l = m.getLngLat(); cbRef.current.onDrag?.({ lng: l.lng, lat: l.lat }); });
     m.on('dragend', () => { const l = m.getLngLat(); cbRef.current.onDragEnd?.({ lng: l.lng, lat: l.lat }); });
+    /* eslint-enable react-hooks/refs */
     return m;
   }, []);
 

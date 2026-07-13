@@ -28,15 +28,17 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     if (!orderId) return;
-    setLoading(true);
-    fetchWithTimeout(`/api/orders/${orderId}`, { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => {
-        if (d.ok) setOrder(d.order);
-        else setError(d.error || 'Order not found');
-      })
-      .catch(() => setError('Failed to load order'))
-      .finally(() => setLoading(false));
+    queueMicrotask(() => {
+      setLoading(true);
+      fetchWithTimeout(`/api/orders/${orderId}`, { credentials: 'include' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) setOrder(d.order);
+          else setError(d.error || 'Order not found');
+        })
+        .catch(() => setError('Failed to load order'))
+        .finally(() => setLoading(false));
+    });
   }, [orderId]);
 
   // Kept in a ref so fetchRoute can read the latest order without needing it

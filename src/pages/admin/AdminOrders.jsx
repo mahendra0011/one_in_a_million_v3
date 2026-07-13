@@ -104,7 +104,7 @@ export default function AdminOrders() {
     } catch { /* silent */ }
   }, []);
 
-  useEffect(() => { fetchOrders(); fetchDeliveryBoys(); }, [fetchOrders, fetchDeliveryBoys]);
+  useEffect(() => { queueMicrotask(() => { fetchOrders(); fetchDeliveryBoys(); }); }, [fetchOrders, fetchDeliveryBoys]);
 
   useSocket({
     joinAdmin: true,

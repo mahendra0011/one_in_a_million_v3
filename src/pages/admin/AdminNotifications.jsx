@@ -37,7 +37,7 @@ export default function AdminNotifications() {
     setLoadingHistory(false);
   };
 
-  useEffect(() => { fetchHistory(); }, []);
+  useEffect(() => { queueMicrotask(fetchHistory); }, []);
 
   // Auto-refresh every 30 s + instant refresh when a notification is broadcast
   useAutoRefresh({ fetchFn: fetchHistory, interval: 30_000 });

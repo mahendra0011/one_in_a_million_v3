@@ -70,7 +70,7 @@ export function useMenu(filters = {}) {
   }, [filterKey]);
 
   useEffect(() => {
-    fetchMenu();
+    queueMicrotask(fetchMenu);
   }, [fetchMenu]);
 
   const productById = useCallback(

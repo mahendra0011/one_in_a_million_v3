@@ -47,7 +47,7 @@ export default function AdminMenu() {
     setLoading(false);
   }, [catFilter, debouncedSearch]);
 
-  useEffect(() => { fetchItems(); }, [fetchItems]);
+  useEffect(() => { queueMicrotask(fetchItems); }, [fetchItems]);
 
   // Menu kam change hota hai — 2 min polling kafi hai
   useAutoRefresh({ fetchFn: fetchItems, interval: 120_000 });

@@ -91,7 +91,7 @@ export default function AdminReviews() {
     setLoading(false);
   }, [filter]);
 
-  useEffect(() => { setPage(1); fetchReviews(1, filter); }, [filter, fetchReviews]);
+  useEffect(() => { queueMicrotask(() => { setPage(1); fetchReviews(1, filter); }); }, [filter, fetchReviews]);
 
   useAutoRefresh({ fetchFn: () => fetchReviews(1, filter), interval: 60_000 });
 

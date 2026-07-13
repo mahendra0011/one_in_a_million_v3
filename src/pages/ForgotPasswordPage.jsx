@@ -59,7 +59,7 @@ function OtpInput({ value, onChange, disabled }) {
 function Countdown({ seconds, onEnd }) {
   const [left, setLeft] = useState(seconds);
   useEffect(() => {
-    setLeft(seconds);
+    queueMicrotask(() => setLeft(seconds));
     if (seconds <= 0) return;
     const t = setInterval(() => setLeft(p => (p <= 1 ? (clearInterval(t), 0) : p - 1)), 1000);
     return () => clearInterval(t);

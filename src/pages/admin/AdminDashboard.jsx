@@ -141,7 +141,7 @@ export default function AdminDashboard() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { queueMicrotask(fetchAll); }, [fetchAll]);
 
   const showToast = (msg) => {
     setLiveToast(msg);

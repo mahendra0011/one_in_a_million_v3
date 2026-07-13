@@ -1,6 +1,8 @@
 /**
  * Reusable skeleton components for admin tables and cards
  */
+import { useMemo } from 'react';
+
 export function SkeletonRow({ cols = 5 }) {
   return (
     <tr>
@@ -37,11 +39,14 @@ export function SkeletonTable({ rows = 5, cols = 5 }) {
 }
 
 export function SkeletonBar() {
+  // Decorative loading-skeleton bar heights, computed once via useMemo([]); a stray double-invoke is invisible.
+  // eslint-disable-next-line react-hooks/purity
+  const heights = useMemo(() => Array.from({ length: 7 }, () => 30 + Math.random() * 80), []);
   return (
     <div className="flex items-end gap-2 h-40 animate-pulse">
-      {Array.from({ length: 7 }).map((_, i) => (
+      {heights.map((h, i) => (
         <div key={i} className="flex-1 flex flex-col items-center gap-1">
-          <div className="w-full bg-gray-200 rounded-t-lg" style={{ height: `${30 + Math.random() * 80}px` }} />
+          <div className="w-full bg-gray-200 rounded-t-lg" style={{ height: `${h}px` }} />
           <div className="h-3 w-6 bg-gray-100 rounded" />
         </div>
       ))}

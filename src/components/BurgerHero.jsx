@@ -1,4 +1,4 @@
-import { useEffect, useRef, Suspense, useState, useCallback, Component } from "react";
+import { useEffect, useRef, useMemo, Suspense, useState, useCallback, Component } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import gsap from "gsap";
@@ -27,14 +27,22 @@ class WebGLErrorBoundary extends Component {
 function ParticleField() {
   const ref = useRef(null);
   const count = 800;
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) {
-    positions[i * 3] = (Math.random() - 0.5) * 20;
-    positions[i * 3 + 1] = (Math.random() - 0.5) * 20;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
-  }
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const geometry = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    /* eslint-disable react-hooks/purity -- decorative 3D particle scatter, computed
+       once via useMemo([]). A stray double-invoke would only reshuffle background
+       particles, which is visually inconsequential; not worth an effect+state
+       round-trip for a purely cosmetic background layer. */
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 20;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 20;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+    }
+    /* eslint-enable react-hooks/purity */
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    return geo;
+  }, []);
   useFrame((state) => {
     if (!ref.current) return;
     ref.current.rotation.y = state.clock.elapsedTime * 0.05;

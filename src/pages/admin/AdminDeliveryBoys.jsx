@@ -25,7 +25,7 @@ export default function AdminDeliveryBoys() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchBoys(); }, [fetchBoys]);
+  useEffect(() => { queueMicrotask(fetchBoys); }, [fetchBoys]);
 
   // Auto-refresh every 30 s + socket-triggered refresh when orders/status change
   useAutoRefresh({ fetchFn: fetchBoys, interval: 30_000 });

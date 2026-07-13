@@ -228,7 +228,7 @@ export default function AdminAnalytics() {
     setLoading(false); setRefreshing(false);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { queueMicrotask(fetchData); }, [fetchData]);
 
   // Auto-refresh every 60 s + immediate refresh on new orders/reservations
   useAutoRefresh({ fetchFn: () => fetchData(true), interval: 60_000 });

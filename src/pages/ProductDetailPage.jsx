@@ -21,7 +21,7 @@ export default function ProductDetailPage({ onAddToCart, onCustomize }) {
   const [shared, setShared] = useState(false);
 
   useEffect(() => {
-    if (sizeOptions?.length && !selectedSize) setSelectedSize(sizeOptions[0]);
+    queueMicrotask(() => { if (sizeOptions?.length && !selectedSize) setSelectedSize(sizeOptions[0]); });
   }, [sizeOptions, selectedSize]);
 
   const toggleExtra = (extra) => {

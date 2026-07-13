@@ -68,7 +68,7 @@ export default function AdminCustomers() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
+  useEffect(() => { queueMicrotask(fetchCustomers); }, [fetchCustomers]);
 
   // Auto-refresh every 60 s + immediate refresh on new orders
   useAutoRefresh({ fetchFn: fetchCustomers, interval: 60_000 });

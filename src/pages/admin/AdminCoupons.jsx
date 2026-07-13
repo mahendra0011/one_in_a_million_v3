@@ -46,7 +46,7 @@ export default function AdminCoupons() {
     }
   }, []);
 
-  useEffect(() => { fetchCoupons(); }, [fetchCoupons]);
+  useEffect(() => { queueMicrotask(fetchCoupons); }, [fetchCoupons]);
 
   useAutoRefresh({ fetchFn: fetchCoupons, interval: 60_000 });
 

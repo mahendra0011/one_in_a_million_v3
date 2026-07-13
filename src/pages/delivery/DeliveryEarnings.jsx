@@ -75,7 +75,7 @@ export default function DeliveryEarnings() {
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
-    fetchEarnings();
+    queueMicrotask(fetchEarnings);
   }, []);
 
   return (

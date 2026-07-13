@@ -52,6 +52,7 @@ export default function AdminSettings() {
 
   // Fetch settings from backend on mount
   useEffect(() => {
+    queueMicrotask(() => {
     setLoading(true);
     fetchWithTimeout('/api/settings', { credentials: 'include' })
       .then(r => r.json())
@@ -73,6 +74,7 @@ export default function AdminSettings() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    });
   }, []);
 
   const updateCore = (key, value) => setCoreSettings(s => ({ ...s, [key]: value }));

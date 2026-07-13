@@ -9,7 +9,7 @@
  * Usage:
  *   const { refresh } = useAutoRefresh({ fetchFn: fetchOrders, interval: 30_000 });
  */
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 
 export function useAutoRefresh({
   fetchFn,
@@ -18,7 +18,9 @@ export function useAutoRefresh({
 }) {
   // Always call the *latest* version of fetchFn without re-connecting the interval
   const fetchRef = useRef(fetchFn);
-  fetchRef.current = fetchFn;
+  useLayoutEffect(() => {
+    fetchRef.current = fetchFn;
+  });
 
   const refresh = useCallback(() => {
     fetchRef.current?.();

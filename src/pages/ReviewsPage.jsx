@@ -54,7 +54,7 @@ export default function ReviewsPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchReviews(1); }, [fetchReviews]);
+  useEffect(() => { queueMicrotask(() => fetchReviews(1)); }, [fetchReviews]);
 
   useEffect(() => {
     if (loading || !headingRef.current) return;

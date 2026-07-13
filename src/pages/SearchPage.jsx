@@ -39,8 +39,7 @@ export default function SearchPage({ onAddToCart, onCustomize }) {
   useEffect(() => {
     if (debouncedQuery) {
       const newHistory = [debouncedQuery, ...history.filter(h => h !== debouncedQuery)].slice(0, MAX_HISTORY);
-      setHistory(newHistory);
-      saveSearchHistory(newHistory);
+      queueMicrotask(() => { setHistory(newHistory); saveSearchHistory(newHistory); });
     }
   }, [debouncedQuery, history]);
 

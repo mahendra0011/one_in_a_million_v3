@@ -277,6 +277,7 @@ export default function DeliveryDashboard() {
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
+    queueMicrotask(() => {
     fetchOrders();
     fetchNotificationsData();
     (async () => {
@@ -288,6 +289,7 @@ export default function DeliveryDashboard() {
         }
       } catch {}
     })();
+    });
   }, []);
 
   useAutoRefresh({ fetchFn: () => fetchOrders(true), interval: 45_000 });

@@ -32,7 +32,7 @@ export default function AdminReservations() {
     setRefreshing(false);
   }, []);
 
-  useEffect(() => { fetchReservations(); }, [fetchReservations]);
+  useEffect(() => { queueMicrotask(fetchReservations); }, [fetchReservations]);
 
   // Real-time: new reservations
   useSocket({

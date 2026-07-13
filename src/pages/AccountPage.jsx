@@ -1039,11 +1039,10 @@ export default function AccountPage({ initialTab }) {
     } catch {}
   };
 
-  useEffect(() => { if (user) setProfileForm({ name: user.name || '', phone: user.phone || '' }); }, [user]);
+  useEffect(() => { if (user) queueMicrotask(() => setProfileForm({ name: user.name || '', phone: user.phone || '' })); }, [user]);
   useEffect(() => {
     if (isLoggedIn && (tab === 'orders' || tab === 'home')) {
-      fetchOrders();
-      fetchMyReviews();
+      queueMicrotask(() => { fetchOrders(); fetchMyReviews(); });
     }
      
   }, [isLoggedIn, tab]);

@@ -71,7 +71,7 @@ export default function DeliveryNotifications() {
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
-    fetchNotifications();
+    queueMicrotask(fetchNotifications);
   }, []);
 
   const markAllRead = async () => {
