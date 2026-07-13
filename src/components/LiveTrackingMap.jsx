@@ -57,7 +57,7 @@ function DriverMarker({ location }) {
   useEffect(() => {
     if (!isLoaded || !map || !location?.lat) return;
     const el = document.createElement('div');
-    el.innerHTML = `<div style="width:42px;height:42px;background:#F07D14;border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 15px rgba(240,125,20,0.5);overflow:hidden"><img src="${motorcycleIconUrl}" width="26" height="26" style="filter:drop-shadow(0 0 1px rgba(0,0,0,0.3))" /></div>`;
+    el.innerHTML = `<div style="width:42px;height:42px;display:flex;align-items:center;justify-content:center"><img src="${motorcycleIconUrl}" width="40" height="40" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4))" /></div>`;
     const m = new maplibregl.Marker({ element: el })
       .setLngLat([location.lng, location.lat])
       .addTo(map);
@@ -255,8 +255,8 @@ export default function LiveTrackingMap({
           <MapMarker longitude={customerLocation.lng} latitude={customerLocation.lat}>
             <MarkerContent>
               {viewMode === 'delivery' ? (
-                <div className="w-10 h-10 bg-red-600 border-3 border-white rounded-full flex items-center justify-center shadow-xl shadow-red-600/40 overflow-hidden">
-                  <img src={userIconUrl} width="24" height="24" alt="Customer" />
+                <div className="w-10 h-10 flex items-center justify-center">
+                  <img src={userIconUrl} width="38" height="38" alt="Customer" className="drop-shadow-lg" />
                 </div>
               ) : (
                 <MapPin size={30} className="text-red-500 fill-red-500 drop-shadow-lg" />
@@ -282,10 +282,10 @@ export default function LiveTrackingMap({
         {myLocation && (
           <MapMarker longitude={displayMyLocation.lng} latitude={displayMyLocation.lat}>
             <MarkerContent>
-              <div className="w-10 h-10 bg-green-500 border-3 border-white rounded-full flex items-center justify-center shadow-xl shadow-green-500/40 overflow-hidden">
+              <div className="w-10 h-10 flex items-center justify-center">
                 {viewMode === 'delivery'
-                  ? <img src={motorcycleIconUrl} width="26" height="26" alt="My Location" />
-                  : <img src={userIconUrl} width="24" height="24" alt="My Location" />}
+                  ? <img src={motorcycleIconUrl} width="38" height="38" alt="My Location" className="drop-shadow-lg" />
+                  : <img src={userIconUrl} width="38" height="38" alt="My Location" className="drop-shadow-lg" />}
               </div>
             </MarkerContent>
             <MarkerPopup closeButton>
