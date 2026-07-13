@@ -93,13 +93,13 @@ function ActiveOrderCard({
 
             {/* Map - shows when out_for_delivery */}
             {activeOrder.status === 'out_for_delivery' && (
-              <LiveTrackingMap
-                customerLocation={activeOrder.customerLocation}
-                driverLocation={activeOrder.deliveryBoyLocation || { lat: driverPath[driverPath.length - 1]?.lat, lng: driverPath[driverPath.length - 1]?.lng }}
-                restaurantLocation={restaurantLocation}
-                driverPath={driverPath}
-                routeGeometry={routeGeometry}
-                height={500}
+                               <LiveTrackingMap
+                                 customerLocation={activeOrder.customerLocation}
+                                 driverLocation={activeOrder.deliveryBoyLocation || { lat: driverPath[driverPath.length - 1]?.lat, lng: driverPath[driverPath.length - 1]?.lng }}
+                                 restaurantLocation={restaurantLocation}
+                                 driverPath={driverPath}
+                                 routeGeometry={routeGeometry}
+                                 height={500}
                 viewMode="delivery"
                 showLocate={true}
                 onMarkDestination={(dest) => {

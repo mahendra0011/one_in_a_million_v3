@@ -597,11 +597,11 @@ function TrackDelivery({ order }) {
 
       {/* Live Map */}
       {order.customerLocation?.lat && order.deliveryBoyLocation?.lat ? (
-        <LiveTrackingMap
-          customerLocation={order.customerLocation}
-          driverLocation={order.deliveryBoyLocation}
-          routeGeometry={routeGeometry}
-          height={200}
+               <LiveTrackingMap
+                 customerLocation={order.customerLocation}
+                 driverLocation={order.deliveryBoyLocation}
+                 routeGeometry={routeGeometry}
+                 height={350}
           showControls={true}
           showLocate={true}
           viewMode="user"
