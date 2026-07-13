@@ -160,7 +160,14 @@ export default function LiveTrackingMap({
     <div style={{ height, position: 'relative' }} className="rounded-2xl overflow-hidden border border-white/10 bg-[#0A0604]">
       <Map center={center} zoom={14}>
         {showControls && (
-          <MapControls position="top-right" showZoom showCompass showLocate showFullscreen />
+          <MapControls
+            position="top-right"
+            showZoom
+            showCompass
+            showLocate={showLocate}
+            showFullscreen
+            onLocate={(c) => setMyLocation({ lat: c.latitude, lng: c.longitude })}
+          />
         )}
 
         {showRoute && routeCoords.length >= 2 && (

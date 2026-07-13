@@ -92,6 +92,27 @@ export const Map = forwardRef(function Map(
     return () => { map.remove(); setIsLoaded(false); setMapInstance(null); };
   }, []);
 
+  // Keep the map view in sync with the `center` prop after the initial mount.
+  // Without this, the map is positioned once on load and never follows updates
+  // (e.g. a moving delivery driver, or a newly picked destination).
+  const lastCenterRef = useRef(center);
+  useEffect(() => {
+    if (!mapInstance || !isLoaded) return;
+    const [lng, lat] = center;
+    if (typeof lng !== 'number' || typeof lat !== 'number') return;
+    const [prevLng, prevLat] = lastCenterRef.current || [];
+    const moved = Math.hypot((lng - (prevLng ?? lng)), (lat - (prevLat ?? lat)));
+    lastCenterRef.current = center;
+    // Skip no-op updates, but always follow real movement (even small GPS ticks)
+    if (moved === 0) return;
+    mapInstance.easeTo({ center: [lng, lat], duration: 600 });
+  }, [mapInstance, isLoaded, center[0], center[1]]);
+
+  useEffect(() => {
+    if (!mapInstance || !isLoaded || typeof zoom !== 'number') return;
+    mapInstance.easeTo({ zoom, duration: 400 });
+  }, [mapInstance, isLoaded, zoom]);
+
   const ctxValue = useMemo(() => ({ map: mapInstance, isLoaded }), [mapInstance, isLoaded]);
 
   return (
@@ -222,6 +243,17 @@ const positionMap = {
   'bottom-right': 'bottom-10 right-2',
 };
 
+function ControlBtn({ onClick, label, children: kid, disabled }) {
+  return (
+    <button onClick={onClick} aria-label={label} type="button" disabled={disabled}
+      className="flex size-8 items-center justify-center first:rounded-t-md last:rounded-b-md
+        hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[#F07D14] focus-visible:outline-none
+        disabled:opacity-50 transition-all text-[#A39791] hover:text-white">
+      {kid}
+    </button>
+  );
+}
+
 export function MapControls({
   position = 'bottom-right',
   showZoom = true,
@@ -259,14 +291,7 @@ export function MapControls({
     document.fullscreenElement ? document.exitFullscreen() : c.requestFullscreen();
   }, [map]);
 
-  const Btn = ({ onClick, label, children: kid, disabled }) => (
-    <button onClick={onClick} aria-label={label} type="button" disabled={disabled}
-      className="flex size-8 items-center justify-center first:rounded-t-md last:rounded-b-md
-        hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[#F07D14] focus-visible:outline-none
-        disabled:opacity-50 transition-all text-[#A39791] hover:text-white">
-      {kid}
-    </button>
-  );
+  const Btn = ControlBtn;
 
   return (
     <div className={`absolute z-10 flex flex-col gap-1.5 ${positionMap[position]} ${className || ''}`}>

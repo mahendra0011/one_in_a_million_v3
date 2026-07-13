@@ -1,8 +1,18 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { fetchWithTimeout } from '../lib/utils';
-import { MapPin, Navigation, Loader2, Search, Crosshair } from 'lucide-react';
+import { MapPin, Loader2, Search, Crosshair } from 'lucide-react';
+import { Map, MapMarker, MarkerContent, MapControls } from './ui/map';
 
 const DEBOUNCE_MS = 400;
+
+async function reverseGeocode(lat, lng) {
+  try {
+    const res = await fetchWithTimeout(`/api/geocode/reverse?lat=${lat}&lng=${lng}`, { timeout: 8000 });
+    const data = await res.json();
+    if (data.ok && data.address) return data.address;
+  } catch { /* fall through to coordinate label */ }
+  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
 
 export default function LocationPicker({ onLocationChange, initialAddress = '' }) {
   const [addressInput, setAddressInput] = useState(initialAddress);
@@ -41,6 +51,17 @@ export default function LocationPicker({ onLocationChange, initialAddress = '' }
     onLocationChange?.(loc);
   };
 
+  // Dragging the pin on the map re-pins the location, same as tapping a
+  // spot on Google Maps to move the destination marker.
+  const handlePinDrag = async (coords) => {
+    const address = await reverseGeocode(coords.lat, coords.lng);
+    const loc = { lat: coords.lat, lng: coords.lng, address };
+    setAddressInput(address);
+    setPinned(loc);
+    setError('');
+    onLocationChange?.(loc);
+  };
+
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) { setError('Geolocation not supported'); return; }
     setLoading(true);
@@ -48,24 +69,11 @@ export default function LocationPicker({ onLocationChange, initialAddress = '' }
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
-        try {
-          const res = await fetchWithTimeout(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-            { headers: { 'Accept-Language': 'en' }, timeout: 8000 }
-          );
-          const data = await res.json();
-          const addr = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-          const loc = { lat, lng, address: addr };
-          setAddressInput(addr);
-          setPinned(loc);
-          onLocationChange?.(loc);
-        } catch {
-          const addr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-          const loc = { lat, lng, address: addr };
-          setAddressInput(addr);
-          setPinned(loc);
-          onLocationChange?.(loc);
-        }
+        const addr = await reverseGeocode(lat, lng);
+        const loc = { lat, lng, address: addr };
+        setAddressInput(addr);
+        setPinned(loc);
+        onLocationChange?.(loc);
         setLoading(false);
       },
       (err) => {
@@ -141,15 +149,34 @@ export default function LocationPicker({ onLocationChange, initialAddress = '' }
       )}
 
       {pinned && !error && (
-        <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
-          <MapPin size={14} className="text-green-400 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-green-400 text-xs font-bold">📍 Location Pinned</p>
-            <p className="text-[#A39791] text-[10px] truncate">
-              {pinned.address} ({pinned.lat.toFixed(5)}, {pinned.lng.toFixed(5)})
-            </p>
+        <>
+          <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+            <MapPin size={14} className="text-green-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-green-400 text-xs font-bold">📍 Location Pinned</p>
+              <p className="text-[#A39791] text-[10px] truncate">
+                {pinned.address} ({pinned.lat.toFixed(5)}, {pinned.lng.toFixed(5)})
+              </p>
+            </div>
           </div>
-        </div>
+
+          <div className="rounded-xl overflow-hidden border border-white/10" style={{ height: 220 }}>
+            <Map center={[pinned.lng, pinned.lat]} zoom={16}>
+              <MapControls position="top-right" showZoom showCompass />
+              <MapMarker
+                longitude={pinned.lng}
+                latitude={pinned.lat}
+                draggable
+                onDragEnd={handlePinDrag}
+              >
+                <MarkerContent>
+                  <MapPin size={30} className="text-red-500 fill-red-500 drop-shadow-lg -translate-y-1/2" />
+                </MarkerContent>
+              </MapMarker>
+            </Map>
+          </div>
+          <p className="text-[10px] text-[#8E827B]">Drag the pin to fine-tune the exact spot, just like on Google Maps.</p>
+        </>
       )}
     </div>
   );

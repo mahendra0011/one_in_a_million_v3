@@ -1946,6 +1946,27 @@ app.get('/api/geocode/search', v.vGeocodeSearch, validate, async (req, res) => {
   }
 });
 
+// Step 4b: Reverse geocoding via MapTiler (fallback: Nominatim)
+app.get('/api/geocode/reverse', async (req, res) => {
+  try {
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ ok: false, error: 'lat aur lng required hain (numbers)' });
+    }
+    const MAPTILER_API_KEY = process.env.MAPTILER_API_KEY;
+    const url = MAPTILER_API_KEY
+      ? `https://api.maptiler.com/geocoding/${lng},${lat}.json?key=${MAPTILER_API_KEY}`
+      : `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
+    const geoRes = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    const data = await geoRes.json();
+    const address = data.features?.[0]?.place_name || data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    res.json({ ok: true, address, lat, lng });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ─── SIMPLE LOGIN (backward compat alias for unified login) ──────────────────
 // AccountPage unified flow use karta hai, ye route direct API callers ke liye hai
 app.post('/api/auth/login', authLimiter, async (req, res) => {
