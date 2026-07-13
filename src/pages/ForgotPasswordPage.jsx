@@ -88,6 +88,8 @@ const BTN_PRIMARY = "w-full py-3 rounded-xl bg-[#F07D14] text-white font-bold ho
 const ERR = "p-3 rounded-xl bg-[#B83A1B]/15 border border-[#B83A1B]/30 text-[#B83A1B] text-sm";
 const OK  = "p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-sm";
 
+const validatePassword = pwd => pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /\d/.test(pwd) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd);
+
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -143,7 +145,7 @@ export default function ForgotPasswordPage() {
 
   // Step 2 → set new password
   const resetPassword = async () => {
-    if (newPassword.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (!validatePassword(newPassword)) { setError('Password must be 8+ chars with uppercase, lowercase, number and special character'); return; }
     if (newPassword !== confirmPassword) { setError('Passwords do not match'); return; }
     setError(''); setLoading(true);
     try {

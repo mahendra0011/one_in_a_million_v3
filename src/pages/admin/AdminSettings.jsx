@@ -19,8 +19,7 @@ export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState('');
 
-  // Core settings — persisted in DB via /api/settings
-  const [coreSettings, setCoreSettings] = useState({
+  const [settings, setSettings] = useState({
     restaurantName: '',
     address: '',
     phone: '',
@@ -30,14 +29,6 @@ export default function AdminSettings() {
     deliveryCharge: 39,
     minOrderAmount: 149,
     isOpen: true,
-  });
-
-  // UI-only settings (not persisted yet — kept for display)
-  const [uiSettings, setUiSettings] = useState({
-    tagline: 'Gourmet burgers made fresh to order',
-    email: 'hello@oneinamillion.com',
-    gstNumber: 'MP23XXXXXX',
-    closedDays: [],
     emailNotif: true,
     smsNotif: true,
     newOrderSound: true,
@@ -48,47 +39,88 @@ export default function AdminSettings() {
     theme: 'orange',
     allowReviews: true,
     maintenanceMode: false,
+    tagline: 'Gourmet burgers made fresh to order',
+    email: 'hello@oneinamillion.com',
+    gstNumber: 'MP23XXXXXX',
+    closedDays: [],
   });
 
-  // Fetch settings from backend on mount
   useEffect(() => {
     queueMicrotask(() => {
-    setLoading(true);
-    fetchWithTimeout('/api/settings', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => {
-        if (d.ok) {
-          const s = d.settings;
-          setCoreSettings({
-            restaurantName: s.restaurantName || '',
-            address: s.address || '',
-            phone: s.phone || '',
-            openTime: s.openTime || '11:00',
-            closeTime: s.closeTime || '23:00',
-            deliveryRadius: s.deliveryRadius ?? 5,
-            deliveryCharge: s.deliveryCharge ?? 39,
-            minOrderAmount: s.minOrderAmount ?? 149,
-            isOpen: s.isOpen ?? true,
-          });
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      setLoading(true);
+      fetchWithTimeout('/api/settings', { credentials: 'include' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) {
+            const s = d.settings;
+            setSettings({
+              restaurantName: s.restaurantName || '',
+              address: s.address || '',
+              phone: s.phone || '',
+              openTime: s.openTime || '11:00',
+              closeTime: s.closeTime || '23:00',
+              deliveryRadius: s.deliveryRadius ?? 5,
+              deliveryCharge: s.deliveryCharge ?? 39,
+              minOrderAmount: s.minOrderAmount ?? 149,
+              isOpen: s.isOpen ?? true,
+              emailNotif: s.emailNotif ?? true,
+              smsNotif: s.smsNotif ?? true,
+              newOrderSound: s.newOrderSound ?? true,
+              lowStockAlert: s.lowStockAlert ?? true,
+              razorpay: s.razorpayEnabled ?? true,
+              upi: s.upiEnabled ?? true,
+              cod: s.codEnabled ?? true,
+              theme: s.theme || 'orange',
+              allowReviews: s.allowReviews ?? true,
+              maintenanceMode: s.maintenanceMode ?? false,
+              tagline: s.tagline || 'Gourmet burgers made fresh to order',
+              email: s.email || 'hello@oneinamillion.com',
+              gstNumber: s.gstNumber || 'MP23XXXXXX',
+              closedDays: s.closedDays || [],
+            });
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
     });
   }, []);
 
-  const updateCore = (key, value) => setCoreSettings(s => ({ ...s, [key]: value }));
-  const updateUi = (key, value) => setUiSettings(s => ({ ...s, [key]: value }));
+  const updateSetting = (key, value) => setSettings(s => ({ ...s, [key]: value }));
 
   const handleSave = async () => {
     setSaving(true);
     setSaveError('');
     try {
+      const payload = {
+        restaurantName: settings.restaurantName,
+        address: settings.address,
+        phone: settings.phone,
+        openTime: settings.openTime,
+        closeTime: settings.closeTime,
+        deliveryRadius: settings.deliveryRadius,
+        deliveryCharge: settings.deliveryCharge,
+        minOrderAmount: settings.minOrderAmount,
+        isOpen: settings.isOpen,
+        emailNotif: settings.emailNotif,
+        smsNotif: settings.smsNotif,
+        newOrderSound: settings.newOrderSound,
+        lowStockAlert: settings.lowStockAlert,
+        razorpayEnabled: settings.razorpay,
+        upiEnabled: settings.upi,
+        codEnabled: settings.cod,
+        theme: settings.theme,
+        allowReviews: settings.allowReviews,
+        maintenanceMode: settings.maintenanceMode,
+        tagline: settings.tagline,
+        email: settings.email,
+        gstNumber: settings.gstNumber,
+        closedDays: settings.closedDays,
+      };
       const res = await fetchWithTimeout('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(coreSettings),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.ok) {
@@ -140,7 +172,6 @@ export default function AdminSettings() {
       </div>
 
       <div className="grid lg:grid-cols-4 gap-6">
-        {/* Sidebar */}
         <nav className="bg-white rounded-xl shadow-sm border border-gray-100 p-2 h-fit">
           {TABS.map(({ id, label, Icon }) => (
             <button
@@ -156,7 +187,6 @@ export default function AdminSettings() {
           ))}
         </nav>
 
-        {/* Content */}
         <motion.div
           key={tab}
           initial={{ opacity: 0, x: 10 }}
@@ -164,7 +194,6 @@ export default function AdminSettings() {
           transition={{ duration: 0.2 }}
           className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 p-6"
         >
-          {/* ── GENERAL ─────────────────────────────────────────────── */}
           {tab === 'general' && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
@@ -172,37 +201,21 @@ export default function AdminSettings() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-500">Restaurant Open</span>
                   <button
-                    onClick={() => updateCore('isOpen', !coreSettings.isOpen)}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${coreSettings.isOpen ? 'bg-green-500' : 'bg-gray-300'}`}
+                    onClick={() => updateSetting('isOpen', !settings.isOpen)}
+                    className={`w-12 h-6 rounded-full transition-colors relative ${settings.isOpen ? 'bg-green-500' : 'bg-gray-300'}`}
                   >
-                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${coreSettings.isOpen ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.isOpen ? 'translate-x-6' : 'translate-x-0.5'}`} />
                   </button>
-                  <span className={`text-sm font-semibold ${coreSettings.isOpen ? 'text-green-600' : 'text-gray-400'}`}>
-                    {coreSettings.isOpen ? '🟢 Open' : '🔴 Closed'}
+                  <span className={`text-sm font-semibold ${settings.isOpen ? 'text-green-600' : 'text-gray-400'}`}>
+                    {settings.isOpen ? '🟢 Open' : '🔴 Closed'}
                   </span>
                 </div>
               </div>
 
-              {/* Core fields */}
               {[
                 { label: 'Restaurant Name', key: 'restaurantName', placeholder: 'One in a Million' },
                 { label: 'Phone', key: 'phone', placeholder: '+91 9876543210', type: 'tel' },
                 { label: 'Address', key: 'address', placeholder: 'Full address' },
-              ].map(({ label, key, placeholder, type = 'text' }) => (
-                <div key={key}>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
-                  <input
-                    type={type}
-                    value={coreSettings[key]}
-                    onChange={e => updateCore(key, e.target.value)}
-                    placeholder={placeholder}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500 text-sm"
-                  />
-                </div>
-              ))}
-
-              {/* UI-only fields */}
-              {[
                 { label: 'Email', key: 'email', placeholder: 'hello@example.com', type: 'email' },
                 { label: 'Tagline', key: 'tagline', placeholder: 'Your tagline' },
                 { label: 'GST Number', key: 'gstNumber', placeholder: 'XXXXXXXXXXXX' },
@@ -211,8 +224,8 @@ export default function AdminSettings() {
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
                   <input
                     type={type}
-                    value={uiSettings[key]}
-                    onChange={e => updateUi(key, e.target.value)}
+                    value={settings[key]}
+                    onChange={e => updateSetting(key, e.target.value)}
                     placeholder={placeholder}
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500 text-sm"
                   />
@@ -221,16 +234,16 @@ export default function AdminSettings() {
 
               <div className="grid grid-cols-3 gap-4">
                 {[
-                  { label: 'Delivery Radius (km)', key: 'deliveryRadius', core: true },
-                  { label: 'Min. Order (₹)', key: 'minOrderAmount', core: true },
-                  { label: 'Delivery Fee (₹)', key: 'deliveryCharge', core: true },
+                  { label: 'Delivery Radius (km)', key: 'deliveryRadius' },
+                  { label: 'Min. Order (₹)', key: 'minOrderAmount' },
+                  { label: 'Delivery Fee (₹)', key: 'deliveryCharge' },
                 ].map(({ label, key }) => (
                   <div key={key}>
                     <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
                     <input
                       type="number"
-                      value={coreSettings[key]}
-                      onChange={e => updateCore(key, Number(e.target.value))}
+                      value={settings[key]}
+                      onChange={e => updateSetting(key, Number(e.target.value))}
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500 text-sm"
                     />
                   </div>
@@ -238,12 +251,11 @@ export default function AdminSettings() {
               </div>
 
               <p className="text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
-                ⚡ Restaurant Name, Phone, Address, Delivery Radius, Delivery Fee, Min Order &amp; Open status are saved to the database and reflected live across the app.
+                ⚡ All settings are saved to the database and reflected across the app.
               </p>
             </div>
           )}
 
-          {/* ── HOURS ───────────────────────────────────────────────── */}
           {tab === 'hours' && (
             <div className="space-y-5">
               <h3 className="font-fredoka text-xl font-bold text-gray-900">Operating Hours</h3>
@@ -252,8 +264,8 @@ export default function AdminSettings() {
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Opening Time</label>
                   <input
                     type="time"
-                    value={coreSettings.openTime}
-                    onChange={e => updateCore('openTime', e.target.value)}
+                    value={settings.openTime}
+                    onChange={e => updateSetting('openTime', e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500 text-sm"
                   />
                 </div>
@@ -261,8 +273,8 @@ export default function AdminSettings() {
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Closing Time</label>
                   <input
                     type="time"
-                    value={coreSettings.closeTime}
-                    onChange={e => updateCore('closeTime', e.target.value)}
+                    value={settings.closeTime}
+                    onChange={e => updateSetting('closeTime', e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500 text-sm"
                   />
                 </div>
@@ -271,14 +283,14 @@ export default function AdminSettings() {
                 <p className="text-sm font-semibold text-gray-700 mb-3">Closed Days</p>
                 <div className="flex flex-wrap gap-2">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => {
-                    const closed = uiSettings.closedDays.includes(day);
+                    const closed = settings.closedDays.includes(day);
                     return (
                       <button
                         key={day}
                         onClick={() =>
-                          updateUi('closedDays', closed
-                            ? uiSettings.closedDays.filter(d => d !== day)
-                            : [...uiSettings.closedDays, day])
+                          updateSetting('closedDays', closed
+                            ? settings.closedDays.filter(d => d !== day)
+                            : [...settings.closedDays, day])
                         }
                         className={`px-4 py-2 rounded-lg text-sm font-semibold border-2 transition-all ${
                           closed ? 'bg-red-50 border-red-300 text-red-600' : 'bg-green-50 border-green-200 text-green-700'
@@ -290,13 +302,12 @@ export default function AdminSettings() {
                   })}
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  {uiSettings.closedDays.length === 0 ? 'Open all 7 days' : `Closed on: ${uiSettings.closedDays.join(', ')}`}
+                  {settings.closedDays.length === 0 ? 'Open all 7 days' : `Closed on: ${settings.closedDays.join(', ')}`}
                 </p>
               </div>
             </div>
           )}
 
-          {/* ── NOTIFICATIONS ───────────────────────────────────────── */}
           {tab === 'notifications' && (
             <div className="space-y-4">
               <h3 className="font-fredoka text-xl font-bold text-gray-900">Notification Preferences</h3>
@@ -312,17 +323,16 @@ export default function AdminSettings() {
                     <p className="text-sm text-gray-500">{desc}</p>
                   </div>
                   <button
-                    onClick={() => updateUi(key, !uiSettings[key])}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${uiSettings[key] ? 'bg-orange-500' : 'bg-gray-200'}`}
+                    onClick={() => updateSetting(key, !settings[key])}
+                    className={`w-12 h-6 rounded-full transition-colors relative ${settings[key] ? 'bg-orange-500' : 'bg-gray-200'}`}
                   >
-                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${uiSettings[key] ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings[key] ? 'translate-x-6' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
               ))}
             </div>
           )}
 
-          {/* ── PAYMENT ─────────────────────────────────────────────── */}
           {tab === 'payment' && (
             <div className="space-y-4">
               <h3 className="font-fredoka text-xl font-bold text-gray-900">Payment Methods</h3>
@@ -340,17 +350,16 @@ export default function AdminSettings() {
                     </div>
                   </div>
                   <button
-                    onClick={() => updateUi(key, !uiSettings[key])}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${uiSettings[key] ? 'bg-orange-500' : 'bg-gray-200'}`}
+                    onClick={() => updateSetting(key, !settings[key])}
+                    className={`w-12 h-6 rounded-full transition-colors relative ${settings[key] ? 'bg-orange-500' : 'bg-gray-200'}`}
                   >
-                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${uiSettings[key] ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings[key] ? 'translate-x-6' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
               ))}
             </div>
           )}
 
-          {/* ── APPEARANCE ──────────────────────────────────────────── */}
           {tab === 'appearance' && (
             <div className="space-y-5">
               <h3 className="font-fredoka text-xl font-bold text-gray-900">Appearance</h3>
@@ -365,9 +374,9 @@ export default function AdminSettings() {
                   ].map(({ id, label, color }) => (
                     <button
                       key={id}
-                      onClick={() => updateUi('theme', id)}
+                      onClick={() => updateSetting('theme', id)}
                       className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                        uiSettings.theme === id ? 'border-gray-900' : 'border-transparent hover:border-gray-200'
+                        settings.theme === id ? 'border-gray-900' : 'border-transparent hover:border-gray-200'
                       }`}
                     >
                       <div className={`w-10 h-10 rounded-full ${color}`} />
@@ -382,16 +391,15 @@ export default function AdminSettings() {
                   <p className="text-sm text-gray-500">Let customers post public reviews</p>
                 </div>
                 <button
-                  onClick={() => updateUi('allowReviews', !uiSettings.allowReviews)}
-                  className={`w-12 h-6 rounded-full transition-colors relative ${uiSettings.allowReviews ? 'bg-orange-500' : 'bg-gray-200'}`}
+                  onClick={() => updateSetting('allowReviews', !settings.allowReviews)}
+                  className={`w-12 h-6 rounded-full transition-colors relative ${settings.allowReviews ? 'bg-orange-500' : 'bg-gray-200'}`}
                 >
-                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${uiSettings.allowReviews ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.allowReviews ? 'translate-x-6' : 'translate-x-0.5'}`} />
                 </button>
               </div>
             </div>
           )}
 
-          {/* ── SECURITY ────────────────────────────────────────────── */}
           {tab === 'security' && (
             <div className="space-y-5">
               <h3 className="font-fredoka text-xl font-bold text-gray-900">Security Settings</h3>
@@ -402,29 +410,15 @@ export default function AdminSettings() {
                   <p className="text-sm text-amber-700">Enabling this will show a maintenance page to customers.</p>
                   <div className="flex items-center gap-3 mt-2">
                     <button
-                      onClick={() => updateUi('maintenanceMode', !uiSettings.maintenanceMode)}
-                      className={`w-12 h-6 rounded-full transition-colors relative ${uiSettings.maintenanceMode ? 'bg-red-500' : 'bg-gray-200'}`}
+                      onClick={() => updateSetting('maintenanceMode', !settings.maintenanceMode)}
+                      className={`w-12 h-6 rounded-full transition-colors relative ${settings.maintenanceMode ? 'bg-red-500' : 'bg-gray-200'}`}
                     >
-                      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${uiSettings.maintenanceMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings.maintenanceMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
                     </button>
-                    <span className={`text-sm font-semibold ${uiSettings.maintenanceMode ? 'text-red-600' : 'text-gray-500'}`}>
-                      {uiSettings.maintenanceMode ? '🔴 Maintenance ON' : '🟢 Site Live'}
+                    <span className={`text-sm font-semibold ${settings.maintenanceMode ? 'text-red-600' : 'text-gray-500'}`}>
+                      {settings.maintenanceMode ? '🔴 Maintenance ON' : '🟢 Site Live'}
                     </span>
                   </div>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Change Admin Password</label>
-                  <input type="password" placeholder="Current password"
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500 text-sm mb-2" />
-                  <input type="password" placeholder="New password"
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500 text-sm mb-2" />
-                  <input type="password" placeholder="Confirm new password"
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500 text-sm" />
-                  <button className="mt-3 px-5 py-2 rounded-xl bg-gray-900 text-white font-bold text-sm hover:bg-gray-800 transition-colors">
-                    Update Password
-                  </button>
                 </div>
               </div>
             </div>

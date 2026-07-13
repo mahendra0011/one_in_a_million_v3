@@ -44,7 +44,7 @@ export default function AdminReservations() {
     const id = resv._id || resv.id;
     setUpdating(id);
     try {
-      const res = await fetchWithTimeout(`/api/reservations/${id}`, { method: 'PUT', headers, credentials: 'include',
+      const res = await fetchWithTimeout(`/api/reservations/${id}`, { method: 'PATCH', headers, credentials: 'include',
         body: JSON.stringify({ status: newStatus }) });
       if (res.ok) {
         setReservations(prev => prev.map(r => (r._id === id || r.id === id) ? { ...r, status: newStatus } : r));

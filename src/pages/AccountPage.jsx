@@ -6,12 +6,12 @@ import { useSelector, useDispatch } from 'react-redux';
 import { loginSuccess, logout, updateUser } from '../store/slices/authSlice';
 import LiveTrackingMap from '../components/LiveTrackingMap';
 import {
-  User, Clock, MapPin, LogOut, Eye, EyeOff,
-  Mail, Lock, Phone, Package, ArrowLeft, CheckCircle2, RefreshCw,
-  Navigation, ExternalLink, Truck, Radio, Star, Camera, X, Upload,
-  CheckCircle, MessageCircle, Loader2, Home, Heart, Zap, Gift, RotateCcw,
-  ShoppingBag, ChevronRight, Trophy, Bell, Share2, Copy,
-  Edit2, Trash2, Plus, Shield, AtSign, Tag
+   User, Clock, MapPin, LogOut, Eye, EyeOff,
+   Mail, Lock, Phone, Package, ArrowLeft, CheckCircle2, RefreshCw,
+   Navigation, ExternalLink, Truck, Radio, Star, Camera, X, Upload,
+   CheckCircle, MessageCircle, Loader2, Home, Heart, Zap, Gift, RotateCcw,
+   ShoppingBag, ChevronRight, Trophy, Bell, Share2, Copy,
+   Edit2, Trash2, Plus, Shield, AtSign, Tag, Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSocket } from '../hooks/useSocket';
@@ -110,6 +110,8 @@ const BTN_PRIMARY = "w-full py-3 rounded-xl bg-[#F07D14] text-white font-bold ho
 const ERR = "p-3 rounded-xl bg-[#B83A1B]/15 border border-[#B83A1B]/30 text-[#B83A1B] text-sm";
 const OK  = "p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-sm";
 
+const validatePassword = pwd => pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /\d/.test(pwd) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd);
+
 // ─── EMAIL-ONLY REGISTER (One-time Email OTP via Brevo) ─────────────────────────
 function RegisterEmailFlow() {
   const dispatch = useDispatch();
@@ -135,7 +137,7 @@ function RegisterEmailFlow() {
   // Step 0 → details form + send OTP
   const sendOtp = async () => {
     if (!name || !email || !password || !phone) { setError('All fields required'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (!validatePassword(password)) { setError('Password must be 8+ chars with uppercase, lowercase, number and special character'); return; }
     setError(''); setLoading(true);
     try {
       const data = await api('/api/auth/register-email/send-otp', { name, email });
@@ -808,9 +810,25 @@ function OrderCard({ order, myReviews, onReviewSubmit }) {
   const [deliveryRating, setDeliveryRating] = useState(order.deliveryRating || 0);
   const [deliveryHover, setDeliveryHover] = useState(0);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const isDelivered = order.status === 'delivered';
+  const isCancellable = ['pending', 'confirmed'].includes(order.status);
   const alreadyReviewed = myReviews.some(r => r.orderId === (order.orderId || order._id));
   const hasDeliveryBoy = !!order.deliveryBoyId || !!order.assignedTo;
+
+  const cancelOrder = async () => {
+    if (!confirm('Cancel this order?')) return;
+    setCancelLoading(true);
+    try {
+      const res = await fetchWithTimeout(`/api/orders/${order.orderId || order._id}/cancel`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.ok) window.location.reload();
+    } catch {}
+    setCancelLoading(false);
+  };
 
   const submitDeliveryRating = async (stars) => {
     setDeliveryRating(stars);
@@ -859,12 +877,24 @@ function OrderCard({ order, myReviews, onReviewSubmit }) {
           </span>
           <span className="text-[#F07D14] font-bold">₹{order.totals?.total?.toFixed(0) || '—'}</span>
         </div>
-        <Link to={`/order/${order.orderId || order._id}`} className="mt-2 text-xs text-[#F07D14] font-semibold flex items-center gap-1 hover:underline">
-          View Details <ChevronRight size={12} />
-        </Link>
+<Link to={`/order/${order.orderId || order._id}`} className="mt-2 text-xs text-[#F07D14] font-semibold flex items-center gap-1 hover:underline">
+           View Details <ChevronRight size={12} />
+         </Link>
 
-        {/* Review CTA for delivered orders */}
-        {isDelivered && (
+         {/* Cancel Order Button */}
+         {isCancellable && (
+           <button
+             onClick={cancelOrder}
+             disabled={cancelLoading}
+             className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-colors disabled:opacity-50"
+           >
+             <X size={13} />
+             {cancelLoading ? 'Cancelling...' : 'Cancel Order'}
+           </button>
+         )}
+
+         {/* Review CTA for delivered orders */}
+         {isDelivered && (
           <div className="mt-3 pt-3 border-t border-white/5">
             {alreadyReviewed ? (
               <div className="flex items-center gap-2 text-green-400 text-xs font-semibold">
@@ -922,6 +952,91 @@ function OrderCard({ order, myReviews, onReviewSubmit }) {
   );
 }
 
+// ─── RESERVATIONS LIST ───────────────────────────────────────────────────────────
+function ReservationsList() {
+  const [reservations, setReservations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [cancelLoading, setCancelLoading] = useState(null);
+
+  const fetchReservations = async () => {
+    setLoading(true);
+    try {
+      const res = await fetchWithTimeout('/api/reservations', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setReservations(data.reservations || []);
+      }
+    } catch {}
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    queueMicrotask(fetchReservations);
+  }, []);
+
+  const cancelReservation = async (id) => {
+    if (!confirm('Cancel this reservation?')) return;
+    setCancelLoading(id);
+    try {
+      const res = await fetchWithTimeout('/api/reservations/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ reservationId: id }),
+      });
+      const data = await res.json();
+      if (data.ok) fetchReservations();
+    } catch {}
+    setCancelLoading(null);
+  };
+
+  const STATUS_COLOR = {
+    pending: 'bg-yellow-500/20 text-yellow-400',
+    confirmed: 'bg-green-500/20 text-green-400',
+    cancelled: 'bg-red-500/20 text-red-400',
+  };
+
+  if (loading) return <div className="space-y-3">{[1,2].map(i => <div key={i} className="h-20 bg-[#1A1310] rounded-2xl animate-pulse" />)}</div>;
+
+  if (reservations.length === 0) return (
+    <div className="text-center py-16">
+      <div className="text-5xl mb-4">📅</div>
+      <p className="text-white font-bold text-lg mb-2">No reservations yet</p>
+      <p className="text-[#8E827B] text-sm">Your table bookings will appear here</p>
+      <Link to="/reservations" className="inline-block mt-4 px-5 py-2.5 rounded-xl bg-[#F07D14] text-white font-bold text-sm hover:bg-[#E86C1B] transition-colors">Book a Table</Link>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      {reservations.map(r => (
+        <div key={r._id || r.id} className="bg-[#1A1310] rounded-2xl border border-white/5 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-[#8E827B]">#{r._id?.slice(-8) || r.id?.slice(-8)}</span>
+            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full capitalize ${STATUS_COLOR[r.status] || 'bg-gray-500/20 text-gray-400'}`}>
+              {r.status}
+            </span>
+          </div>
+          <div className="space-y-1 text-sm">
+            <p className="text-white"><span className="text-[#8E827B]">Date:</span> {new Date(r.date || r.reservationDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+            <p className="text-white"><span className="text-[#8E827B]">Time:</span> {r.time || r.timeSlot}</p>
+            <p className="text-white"><span className="text-[#8E827B]">Guests:</span> {r.guests || r.partySize}</p>
+          </div>
+          {r.status !== 'cancelled' && (
+            <button
+              onClick={() => cancelReservation(r._id || r.id)}
+              disabled={cancelLoading === (r._id || r.id)}
+              className="mt-3 w-full py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-colors disabled:opacity-50"
+            >
+              {cancelLoading === (r._id || r.id) ? 'Cancelling...' : <><X size={12} className="inline mr-1" />Cancel Reservation</>}
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── MAIN ACCOUNT PAGE ────────────────────────────────────────────────────────
 export default function AccountPage({ initialTab }) {
   const dispatch = useDispatch();
@@ -942,10 +1057,10 @@ export default function AccountPage({ initialTab }) {
         (o.orderId === order.orderId || o._id === order._id) ? { ...o, ...order } : o
       ));
     },
-    // Real-time: push notification from server (new order confirmed, dispatched, etc.)
+    // Real-time: push notification from server (order status updates)
     onNotification: (notif) => {
-      // Refresh orders on delivery-related notifications so status badges stay fresh
-      if (notif?.type && ['order_confirmed', 'order_dispatched', 'order_delivered', 'order_cancelled'].includes(notif.type)) {
+      // Refresh orders on order_status notifications so status badges stay fresh
+      if (notif?.type === 'order_status' && notif?.data?.orderId) {
         fetchOrders();
       }
     },
@@ -1102,7 +1217,7 @@ export default function AccountPage({ initialTab }) {
   };
   const submitPwChange = async () => {
     if (pwNew !== pwConfirm) { setPwMsg("Passwords don't match"); return; }
-    if (pwNew.length < 6)    { setPwMsg('Min 6 characters'); return; }
+    if (!validatePassword(pwNew)) { setPwMsg('Password must be 8+ chars with uppercase, lowercase, number and special character'); return; }
     setPwLoading(true); setPwMsg('');
     try {
       const res  = await fetchWithTimeout('/api/auth/change-password/verify', {
@@ -1233,6 +1348,7 @@ export default function AccountPage({ initialTab }) {
     : [
         { id: 'home',          label: 'Home',      icon: Home },
         { id: 'orders',        label: 'Orders',    icon: Package },
+        { id: 'reservations',  label: 'Reservations', icon: Calendar },
         { id: 'profile',       label: 'Profile',   icon: User },
         { id: 'addresses',     label: 'Addresses', icon: MapPin },
         { id: 'wallet',        label: 'Wallet',    icon: Trophy },
@@ -1441,29 +1557,36 @@ export default function AccountPage({ initialTab }) {
             </motion.div>
           )}
 
-          {tab === 'orders' && (
-            <motion.div key="orders" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              {ordersLoading ? (
-                <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-28 bg-[#1A1310] rounded-2xl animate-pulse" />)}</div>
-              ) : orders.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="text-5xl mb-4">🍔</div>
-                  <p className="text-white font-bold text-lg mb-2">No orders yet</p>
-                  <p className="text-[#8E827B] text-sm">Your order history will appear here</p>
-                </div>
-              ) : (
-                <>
-                  {/* Active Orders — tracking section */}
-                  {orders.filter(o => o.status === 'out_for_delivery').map(o => (
-                    <TrackDelivery key={o._id} order={o} />
-                  ))}
-                  <div className="space-y-3">{orders.map(o => <OrderCard key={o._id} order={o} myReviews={myReviews} onReviewSubmit={handleReviewSubmit} />)}</div>
-                </>
-              )}
-            </motion.div>
-          )}
+{tab === 'orders' && (
+             <motion.div key="orders" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+               {ordersLoading ? (
+                 <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-28 bg-[#1A1310] rounded-2xl animate-pulse" />)}</div>
+               ) : orders.length === 0 ? (
+                 <div className="text-center py-16">
+                   <div className="text-5xl mb-4">🍔</div>
+                   <p className="text-white font-bold text-lg mb-2">No orders yet</p>
+                   <p className="text-[#8E827B] text-sm">Your order history will appear here</p>
+                 </div>
+               ) : (
+                 <>
+                   {/* Active Orders — tracking section */}
+                   {orders.filter(o => o.status === 'out_for_delivery').map(o => (
+                     <TrackDelivery key={o._id} order={o} />
+                   ))}
+                   <div className="space-y-3">{orders.map(o => <OrderCard key={o._id} order={o} myReviews={myReviews} onReviewSubmit={handleReviewSubmit} />)}</div>
+                 </>
+               )}
+             </motion.div>
+           )}
 
-          {tab === 'profile' && (
+           {tab === 'reservations' && (
+             <motion.div key="reservations" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+               <h2 className="text-white font-bold text-lg flex items-center gap-2"><Calendar size={18} className="text-[#F07D14]" /> My Reservations</h2>
+               <ReservationsList />
+             </motion.div>
+           )}
+
+           {tab === 'profile' && (
             <motion.div key="profile" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
               {/* Basic info */}
               <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-6 space-y-5">

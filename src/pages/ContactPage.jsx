@@ -1,8 +1,9 @@
 import SEOHead from '../components/SEOHead';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Phone, MapPin, MessageSquare, Send, Clock, Mail, Globe } from 'lucide-react';
+import { fetchWithTimeout } from '../lib/utils';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -28,6 +29,7 @@ const locations = [
 export default function ContactPage() {
   const containerRef = useRef(null);
   const headingRef = useRef(null);
+  const [submitting, setSubmitting] = useState(false);
   const infoRef = useRef(null);
 
   useEffect(() => {
@@ -207,22 +209,54 @@ export default function ContactPage() {
                 <h2 className="font-fredoka text-3xl font-bold text-white mb-6">Get in Touch</h2>
                 <p className="text-[#A39791] mb-8">Fill out the form below and we'll get back to you within 24 hours.</p>
 
-<form className="space-y-6" onSubmit={(e) => { e.preventDefault(); alert('Message sent! We will get back to you soon.'); }}>
+<form className="space-y-6" onSubmit={async (e) => {
+  e.preventDefault();
+  if (submitting) return;
+  setSubmitting(true);
+  try {
+    const form = e.target;
+    const data = {
+      name: form.name.value,
+      email: form.email.value,
+      phone: form.phone.value,
+      subject: form.subject.value,
+      message: form.message.value,
+    };
+    const res = await fetchWithTimeout('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (json.ok) {
+      alert('Message sent! We will get back to you soon.');
+      form.reset();
+    } else {
+      alert('Failed: ' + json.error);
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  } finally {
+    setSubmitting(false);
+  }
+}}>
                    <div className="form-group grid sm:grid-cols-2 gap-4">
                      <div>
                        <label className="block text-sm font-bold text-white mb-2">Full Name *</label>
-                       <input
-                         required
-                         type="text"
-                         placeholder="John Doe"
-                         className="w-full px-4 py-3.5 rounded-xl bg-[#16100D] border-2 border-white/10 text-white placeholder:text-[#8E827B] focus:outline-none focus:border-[#F07D14] focus:ring-4 focus:ring-[#F07D14]/20 transition-all"
-                         autoComplete="name"
-                       />
+<input
+                        required
+                        name="name"
+                        type="text"
+                        placeholder="John Doe"
+                        className="w-full px-4 py-3.5 rounded-xl bg-[#16100D] border-2 border-white/10 text-white placeholder:text-[#8E827B] focus:outline-none focus:border-[#F07D14] focus:ring-4 focus:ring-[#F07D14]/20 transition-all"
+                        autoComplete="name"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-white mb-2">Email Address *</label>
-                      <input
+<input
                         required
+                        name="email"
                         type="email"
                         placeholder="you@example.com"
                         className="w-full px-4 py-3.5 rounded-xl bg-[#16100D] border-2 border-white/10 text-white placeholder:text-[#8E827B] focus:outline-none focus:border-[#F07D14] focus:ring-4 focus:ring-[#F07D14]/20 transition-all"
@@ -232,7 +266,8 @@ export default function ContactPage() {
 
                   <div className="form-group">
                     <label className="block text-sm font-bold text-white mb-2">Phone Number</label>
-                    <input
+<input
+                      name="phone"
                       type="tel"
                       placeholder="+91 98765 43210"
                       className="w-full px-4 py-3.5 rounded-xl bg-[#16100D] border-2 border-white/10 text-white placeholder:text-[#8E827B] focus:outline-none focus:border-[#F07D14] focus:ring-4 focus:ring-[#F07D14]/20 transition-all"
@@ -241,9 +276,10 @@ export default function ContactPage() {
 
                   <div className="form-group">
                     <label className="block text-sm font-bold text-white mb-2">Subject *</label>
-                    <input
-                      required
-                      type="text"
+<input
+                       required
+                       name="subject"
+                       type="text"
                       placeholder="How can we help you?"
                       className="w-full px-4 py-3.5 rounded-xl bg-[#16100D] border-2 border-white/10 text-white placeholder:text-[#8E827B] focus:outline-none focus:border-[#F07D14] focus:ring-4 focus:ring-[#F07D14]/20 transition-all"
                     />
@@ -251,8 +287,9 @@ export default function ContactPage() {
 
                   <div className="form-group">
                     <label className="block text-sm font-bold text-white mb-2">Your Message *</label>
-                    <textarea
+<textarea
                       required
+                      name="message"
                       rows="6"
                       placeholder="Tell us what's on your mind..."
                       className="w-full px-4 py-3.5 rounded-xl bg-[#16100D] border-2 border-white/10 text-white placeholder:text-[#8E827B] focus:outline-none focus:border-[#F07D14] focus:ring-4 focus:ring-[#F07D14]/20 transition-all resize-none"

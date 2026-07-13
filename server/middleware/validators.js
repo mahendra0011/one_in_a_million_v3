@@ -205,7 +205,7 @@ export const vOrderIdParam = [
 export const vOrderUpdateStatus = [
   param('id').trim().notEmpty().withMessage('Order id is required'),
   body('status').trim().notEmpty().withMessage('status is required')
-    .isIn(['pending', 'confirmed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'])
+    .isIn(['pending', 'confirmed', 'preparing', 'reached_restaurant', 'picked_up', 'out_for_delivery', 'delivered', 'cancelled'])
     .withMessage('Invalid status value'),
   body('assignedTo').optional({ checkFalsy: true }).matches(MONGO_ID).withMessage('assignedTo must be a valid id'),
 ];
@@ -277,6 +277,16 @@ export const vReviewsQuery = [
   query('itemId').optional().trim(),
   query('page').optional().isInt({ min: 1 }).withMessage('page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('limit must be between 1 and 100'),
+];
+
+export const vAdminUpdateCustomer = [
+  isMongoId('id', param),
+  body('isBanned').isBoolean().withMessage('isBanned must be boolean'),
+];
+
+export const vAdminUpdateLoyalty = [
+  isMongoId('id', param),
+  body('points').notEmpty().withMessage('points is required').isInt({ min: 1 }).withMessage('points must be a positive integer'),
 ];
 
 export const vCreateReview = [

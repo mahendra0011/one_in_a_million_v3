@@ -27,6 +27,7 @@
     "mongoose": "^8.0.0",
     "mongoose-unique-validator": "^6.1.1",
     "redis": "^6.1.0",
-    "socket.io": "^4.7.0"
+    "socket.io": "^4.7.0",
+    "web-push": "^3.6.7"
   }
 }

@@ -59,9 +59,12 @@ export default function PaymentPage() {
   const tax = (subtotal - discount - pointsDiscount) * 0.05;
   const total = subtotal - discount - pointsDiscount + delivery + tax;
 
+  const [error, setError] = useState('');
+
   const handlePay = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     const orderPayload = {
       items,
       totals: { subtotal, discount, pointsDiscount, delivery, tax, total },
@@ -77,7 +80,6 @@ export default function PaymentPage() {
       payment: method,
       paymentStatus: method === 'cod' ? 'pending' : 'paid',
       fulfillment: cart.fulfillment,
-      userId: user?._id || user?.id || null,
     };
     try {
       const res = await fetchWithTimeout('/api/orders', {
@@ -87,7 +89,7 @@ export default function PaymentPage() {
         body: JSON.stringify(orderPayload),
       });
       const data = await res.json();
-      // Increment coupon usage if one was applied
+      if (!data.ok) throw new Error(data.error || 'Order failed');
       if (data.ok && cart.coupon) {
         fetchWithTimeout('/api/coupons/use', {
           method: 'POST',
@@ -96,13 +98,14 @@ export default function PaymentPage() {
           body: JSON.stringify({ code: cart.coupon }),
         }).catch(() => {});
       }
-    } catch {
-      // Server unavailable — still mark paid so UX works offline
+      setLoading(false);
+      setPaid(true);
+      dispatch(clearCart());
+      dispatch(clearServerCart());
+    } catch (err) {
+      setLoading(false);
+      setError(err.message || 'Failed to place order. Please try again.');
     }
-    setLoading(false);
-    setPaid(true);
-    dispatch(clearCart());
-    dispatch(clearServerCart()); // Step 20: clear server cart too
   };
 
   const formatCard = (val) => val.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim().slice(0, 19);
@@ -339,6 +342,8 @@ export default function PaymentPage() {
                       </>
                     )}
                   </button>
+
+                  {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
                   <p className="text-center text-xs text-[#8E827B] flex items-center justify-center gap-1">
                     <Shield size={12} className="text-green-400" />

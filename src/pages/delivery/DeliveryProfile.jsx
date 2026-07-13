@@ -10,6 +10,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAYS_HI = ['रवि', 'सोम', 'मंगल', 'बुध', 'गुरु', 'शुक्र', 'शनि'];
 
+const validatePassword = pwd => pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /\d/.test(pwd) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd);
+
 function Toast({ msg, type = 'success', onClose }) {
   useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, []);
   return (
@@ -125,7 +127,7 @@ export default function DeliveryProfile() {
   const changePassword = async () => {
     setPwError('');
     if (pwForm.newPassword !== pwForm.confirmPassword) { setPwError('Nayi passwords match nahi kar rahi'); return; }
-    if (pwForm.newPassword.length < 6) { setPwError('Min 6 characters chahiye'); return; }
+    if (!validatePassword(pwForm.newPassword)) { setPwError('Password must be 8+ chars with uppercase, lowercase, number and special character'); return; }
     setPwSaving(true);
     try {
       const res = await fetchWithTimeout('/api/delivery/change-password', {

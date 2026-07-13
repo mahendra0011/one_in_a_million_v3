@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema({
   isPhoneVerified: { type: Boolean, default: false },
   isEmailVerified: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
+  isBanned: { type: Boolean, default: false },
   loyaltyPoints: { type: Number, default: 0 },
   savedAddresses: [{ label: String, address: String, phone: String }],
   vehicleType: { type: String, default: '' },

@@ -2,11 +2,12 @@ import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import https from 'https';
 
-// Direct Cloudinary configuration
+// SECURITY WARNING: Never commit API secrets to git. These must be set in .env
+// Required: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
 cloudinary.config({
-  cloud_name: 'dsjxrospe',
-  api_key: '993383116366593',
-  api_secret: '6_G2jIHA-kbTUlcFiRySu9fgK2E',
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 console.log('Cloudinary Config Loaded');

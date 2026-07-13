@@ -10,6 +10,17 @@ const settingsSchema = new mongoose.Schema({
   deliveryCharge: { type: Number, default: 39 },
   minOrderAmount: { type: Number, default: 149 },
   isOpen:         { type: Boolean, default: true },
+  // UI settings
+  emailNotif:     { type: Boolean, default: true },
+  smsNotif:       { type: Boolean, default: true },
+  newOrderSound:  { type: Boolean, default: true },
+  lowStockAlert:  { type: Boolean, default: true },
+  razorpayEnabled: { type: Boolean, default: true },
+  upiEnabled:     { type: Boolean, default: true },
+  codEnabled:      { type: Boolean, default: true },
+  theme:           { type: String, default: 'orange' },
+  allowReviews:    { type: Boolean, default: true },
+  maintenanceMode: { type: Boolean, default: false },
   // Restaurant location coordinates for delivery tracking
   restaurantLocation: {
     lat: { type: Number, default: 23.1828 },

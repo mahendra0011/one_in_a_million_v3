@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+const validatePassword = pwd => pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /\d/.test(pwd) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd);
+
 export default function DeliverySetPassword() {
   const navigate = useNavigate();
   const [newPassword, setNewPassword] = useState('');
@@ -15,7 +17,7 @@ export default function DeliverySetPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (newPassword.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (!validatePassword(newPassword)) { setError('Password must be 8+ chars with uppercase, lowercase, number and special character'); return; }
     if (newPassword !== confirmPassword) { setError('Passwords do not match'); return; }
 
     setLoading(true);

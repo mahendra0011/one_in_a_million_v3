@@ -35,6 +35,7 @@ import {
 import Settings, { getSettings } from './models/Settings.js';
 import { authenticate, adminOnly, deliveryOnly, optionalAuth, setAuthCookie, clearAuthCookie, getToken, blacklistToken } from './middleware/auth.js';
 import fileUpload from 'express-fileupload';
+import webPush from 'web-push';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import helmet from 'helmet';
@@ -271,6 +272,8 @@ const broadcastStatusUpdate = (order, status) => {
   notifyOrder(order.orderId, 'status-update', { orderId: order.orderId, status, message });
   notifyAdmin('order-updated', order);
   if (order.userId) {
+    // Also notify user room for AccountPage real-time updates
+    io.to(`user-${order.userId}`).emit('order-updated', order);
     const cfg = STATUS_LABELS[status] || { emoji: '📦', label: status };
     createNotification({
       userId: order.userId,
@@ -643,7 +646,10 @@ app.post('/api/admin/delivery-boys', adminOnly, v.vAdminCreateDeliveryBoy, valid
 
 app.patch('/api/admin/delivery-boys/:id', adminOnly, v.vAdminUpdateDeliveryBoy, validate, async (req, res) => {
   try {
-    const boy = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }).select('-password');
+    const { name, phone, email, isActive, vehicleType, vehicleNumber } = req.body;
+    const update = { name, phone, email, isActive, vehicleType, vehicleNumber };
+    Object.keys(update).forEach(k => update[k] === undefined && delete update[k]);
+    const boy = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select('-password');
     if (!boy) return res.status(404).json({ ok: false, error: 'Not found' });
     res.json({ ok: true, boy });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
@@ -1001,7 +1007,7 @@ app.delete('/api/menu/:id', adminOnly, v.vMenuIdParam, validate, async (req, res
 });
 
 // ─── ORDERS ROUTES ────────────────────────────────────────────────────────────
-app.post('/api/orders', orderLimiter, v.vCreateOrder, validate, async (req, res) => {
+app.post('/api/orders', authenticate, orderLimiter, v.vCreateOrder, validate, async (req, res) => {
   try {
     const orderId = 'BIM-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
     const customerLocation = {};
@@ -1013,7 +1019,14 @@ app.post('/api/orders', orderLimiter, v.vCreateOrder, validate, async (req, res)
       if (customerLocation.lat == null || customerLocation.lng == null) return res.status(400).json({ ok: false, error: 'Delivery location coordinates required — please use "My Location" button or select from search results' });
       if (!customerLocation.landmark?.trim()) return res.status(400).json({ ok: false, error: 'Flat / house number / landmark details required' });
     }
-    const order = await Order.create({ ...req.body, orderId, customerLocation });
+    // Check if authenticated user is banned
+    if (req.user?.id) {
+      const user = await User.findById(req.user.id);
+      if (user?.isBanned) {
+        return res.status(403).json({ ok: false, error: 'Your account has been banned' });
+      }
+    }
+    const order = await Order.create({ userId: req.user.id, ...req.body, orderId, customerLocation });
     notifyAdmin('new-order', order);
     if (order.userId && order.totals?.total) {
       await User.findByIdAndUpdate(order.userId, { $inc: { loyaltyPoints: Math.floor(order.totals.total / 10) } });
@@ -1085,6 +1098,26 @@ app.patch('/api/orders/:id/status', adminOnly, v.vOrderUpdateStatus, validate, a
   } catch (err) { res.status(400).json({ ok: false, error: err.message }); }
 });
 
+app.post('/api/orders/:id/cancel', authenticate, async (req, res) => {
+  try {
+    const order = await Order.findOne({ orderId: req.params.id });
+    if (!order) return res.status(404).json({ ok: false, error: 'Order not found' });
+    if (String(order.userId) !== String(req.user.id) && req.user.role !== 'admin') {
+      return res.status(403).json({ ok: false, error: 'Unauthorized' });
+    }
+    if (order.status !== 'pending' && order.status !== 'confirmed') {
+      return res.status(400).json({ ok: false, error: 'Order cannot be cancelled at this stage' });
+    }
+    const update = { status: 'cancelled' };
+    await Order.findOneAndUpdate({ orderId: req.params.id }, update);
+    if (order.assignedTo) {
+      createDeliveryNotif({ deliveryBoyId: order.assignedTo, type: 'order_cancelled', title: '❌ Order Cancel Hua', body: `Order ${order.orderId} customer ne cancel kar diya.`, data: { orderId: order.orderId } });
+    }
+    createNotification({ userId: order.userId, type: 'order_status', title: '❌ Order Cancelled', body: `Your order ${order.orderId} has been cancelled.`, data: { orderId: order.orderId, status: 'cancelled' } });
+    res.json({ ok: true, message: 'Order cancelled' });
+  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+});
+
 app.patch('/api/orders/:id/assign', adminOnly, v.vOrderAssign, validate, async (req, res) => {
   try {
     const { deliveryBoyId } = req.body;
@@ -1098,6 +1131,30 @@ app.patch('/api/orders/:id/assign', adminOnly, v.vOrderAssign, validate, async (
     notifyDelivery(deliveryBoyId, 'new-assignment', order);
     createDeliveryNotif({ deliveryBoyId, type: 'new_order', title: '🛵 Nayi Order Assign!', body: `Order ${order.orderId} aapko assign hua hai — ₹${order.totals?.total?.toFixed(0)}`, data: { orderId: order.orderId } });
     res.json({ ok: true, order });
+  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+});
+
+// ─── ADMIN CUSTOMER MANAGEMENT ─────────────────────────────────────────────
+app.get('/api/admin/customers', adminOnly, async (req, res) => {
+  try {
+    const users = await User.find({ role: 'user' }).select('name email phone loyaltyPoints isBanned createdAt isActive').sort({ createdAt: -1 });
+    res.json({ ok: true, customers: users });
+  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+});
+
+app.patch('/api/admin/customers/:id/ban', adminOnly, v.vAdminUpdateCustomer, validate, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.id, { isBanned: req.body.isBanned }, { new: true });
+    if (!user) return res.status(404).json({ ok: false, error: 'Customer not found' });
+    res.json({ ok: true, customer: user });
+  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+});
+
+app.patch('/api/admin/customers/:id/loyalty', adminOnly, v.vAdminUpdateLoyalty, validate, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.id, { $inc: { loyaltyPoints: req.body.points } }, { new: true });
+    if (!user) return res.status(404).json({ ok: false, error: 'Customer not found' });
+    res.json({ ok: true, customer: user });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
@@ -1522,7 +1579,7 @@ app.get('/api/settings', async (_req, res) => {
 
 app.put('/api/settings', adminOnly, v.vUpdateSettings, validate, async (req, res) => {
   try {
-    const allowed = ['restaurantName', 'address', 'phone', 'openTime', 'closeTime', 'deliveryRadius', 'deliveryCharge', 'minOrderAmount', 'isOpen'];
+    const allowed = ['restaurantName', 'address', 'phone', 'openTime', 'closeTime', 'deliveryRadius', 'deliveryCharge', 'minOrderAmount', 'isOpen', 'emailNotif', 'smsNotif', 'newOrderSound', 'lowStockAlert', 'razorpayEnabled', 'upiEnabled', 'codEnabled', 'theme', 'allowReviews', 'maintenanceMode', 'tagline', 'email', 'gstNumber', 'closedDays'];
     const update = {};
     for (const key of allowed) { if (req.body[key] !== undefined) update[key] = req.body[key]; }
     update.updatedAt = new Date();
@@ -1951,9 +2008,105 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
+// ─── PUSH NOTIFICATIONS CONFIG ───────────────────────────────────────────────────
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webPush.setVapidDetails(
+    'mailto:admin@oneinamillion.com',
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY
+  );
+}
+
+// ─── PUSH NOTIFICATION ENDPOINTS ───────────────────────────────────────────────────
+app.get('/api/push/public-key', (_req, res) => {
+  res.json({ ok: true, publicKey: VAPID_PUBLIC_KEY || null });
+});
+
+app.post('/api/push/subscribe', authenticate, async (req, res) => {
+  const { subscription } = req.body;
+  if (!subscription) return res.status(400).json({ ok: false, error: 'subscription required' });
+  try {
+    await DeliveryPushSub.findOneAndUpdate(
+      { deliveryBoyId: req.user.id },
+      { subscription, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Send push to delivery boy
+async function sendPushToDelivery(deliveryBoyId, payload) {
+  const sub = await DeliveryPushSub.findOne({ deliveryBoyId });
+  if (!sub || !VAPID_PUBLIC_KEY) return;
+  try {
+    await webPush.sendNotification(sub.subscription, JSON.stringify(payload));
+  } catch (e) {
+    console.error('[push] Failed to send:', e.message);
+  }
+}
+
+// ─── CONTACT ───────────────────────────────────────────────────────────────────────
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { name, email, phone, subject, message } = req.body;
+    if (!name || !email || !subject || !message) {
+      return res.status(400).json({ ok: false, error: 'Name, email, subject and message required' });
+    }
+    // Create admin notification for the contact message
+    const AdminNotif = (await import('./models/AdminNotifLog.js')).default;
+    await AdminNotif.create({
+      type: 'contact_message',
+      title: `📧 ${subject}`,
+      body: `${name} (${email}${phone ? ', ' + phone : ''}): ${message.slice(0, 500)}`,
+      data: { name, email, phone, subject, message },
+    });
+    // Emit real-time event to admin room
+    notifyAdmin('contact-message', { name, email, phone, subject, message });
+    // Send email to admin (if email service configured)
+    if (process.env.ADMIN_CONTACT_EMAIL) {
+      const { sendEmailOtp } = await import('./services/otp.service.js');
+      await sendEmailOtp({
+        to: process.env.ADMIN_CONTACT_EMAIL,
+        otp: '',
+        purpose: 'contact',
+        name,
+        extra: `Email: ${email}\nPhone: ${phone || 'N/A'}\nSubject: ${subject}\nMessage: ${message}`,
+      }).catch(() => {});
+    }
+    res.json({ ok: true, message: 'Message sent successfully' });
+  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
+});
+
 // ─── 404 HANDLER ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ ok: false, error: `Route not found: ${req.method} ${req.path}` });
+});
+
+// ─── CONTACT FORM ──────────────────────────────────────────────────────────────
+app.post('/api/contact', v.vContactForm, validate, async (req, res) => {
+  try {
+    const { name, email, phone, subject, message } = req.body;
+    // Admin notification create karo
+    await AdminNotifLog.create({
+      target: 'contact',
+      userQuery: `${name} <${email}> | ${phone}`,
+      title: subject,
+      message,
+      type: 'contact',
+      sentCount: 0
+    });
+    // Email notification bhejo agar settings me email set hai
+    const settings = await getSettings();
+    if (settings.email) {
+      sendContactFormEmail({ adminEmail: settings.email, name, email, phone, subject, message });
+    }
+    res.status(201).json({ ok: true, message: 'Message received! We will get back to you soon.' });
+  } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
 // ─── GLOBAL ERROR HANDLER ───────────────────────────────────────────────────────

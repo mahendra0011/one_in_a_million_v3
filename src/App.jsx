@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { addItem, fetchServerCart, syncCartToServer, validateCartItems } from './store/slices/cartSlice';
 import { fetchNotifications, pushNotification, clearNotificationsState } from './store/slices/notificationSlice';
 import { useMenu } from './hooks/useMenu';
+import { useSocket } from './hooks/useSocket';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import CartDrawer from './components/CartDrawer';
@@ -107,22 +108,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // only on mount
 
-  // Step 21 — real-time notification socket subscription
-  useEffect(() => {
-    if (!auth.isLoggedIn || !auth.user?._id) return;
-    let socket;
-    let cancelled = false;
-    import('socket.io-client').then(({ io }) => {
-      if (cancelled) return;
-      socket = io(window.location.origin, { transports: ['polling', 'websocket'] });
-      socket.on('connect', () => socket.emit('join-user', auth.user._id));
-      socket.on('notification', (notif) => dispatch(pushNotification(notif)));
-    }).catch(() => {});
-    return () => {
-      cancelled = true;
-      socket?.disconnect();
-    };
-  }, [auth.isLoggedIn, auth.user?._id, dispatch]);
+// Step 21 — real-time notification socket subscription
+   const { trackOrder } = useSocket({
+     joinUser: auth.isLoggedIn && auth.user?._id ? auth.user._id : null,
+     onNotification: (notif) => dispatch(pushNotification(notif)),
+   });
 
   // Debounced cart sync to backend whenever cart changes (logged-in users only)
   useEffect(() => {

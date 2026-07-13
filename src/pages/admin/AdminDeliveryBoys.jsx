@@ -1,6 +1,6 @@
 import { fetchWithTimeout } from '../../lib/utils';
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Phone, Mail, Truck, Check, MapPin, ExternalLink, Clock } from 'lucide-react';
+import { Plus, X, Phone, Mail, Truck, Check, MapPin, ExternalLink, Clock, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SkeletonTable } from '../../components/admin/SkeletonRow';
 import { useSocket } from '../../hooks/useSocket';
@@ -14,6 +14,9 @@ export default function AdminDeliveryBoys() {
   const [form, setForm]       = useState(EMPTY_FORM);
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState('');
+  const [msgModal, setMsgModal] = useState(null); // { boyId, name } for message compose
+  const [msgText, setMsgText] = useState('');
+  const [msgSending, setMsgSending] = useState(false);
 
   const fetchBoys = useCallback(async () => {
     setLoading(true);
@@ -73,6 +76,30 @@ export default function AdminDeliveryBoys() {
       const data = await res.json();
       if (data.ok) setBoys(prev => prev.map(b => b._id === boy._id ? data.boy : b));
     } catch {}
+  };
+
+  const sendMessage = async () => {
+    if (!msgText.trim() || !msgModal?.boyId) return;
+    setMsgSending(true);
+    try {
+      const res = await fetchWithTimeout(`/api/admin/delivery-boys/${msgModal.boyId}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ message: msgText }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setMsgModal(null);
+        setMsgText('');
+        alert('Message sent!');
+      } else {
+        alert('Failed: ' + data.error);
+      }
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+    setMsgSending(false);
   };
 
   const activeCount = boys.filter(b => b.isActive).length;
@@ -148,13 +175,17 @@ export default function AdminDeliveryBoys() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button onClick={() => toggleActive(boy)}
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold transition-colors ${
-                          boy.isActive ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700' : 'bg-red-100 text-red-700 hover:bg-green-100 hover:text-green-700'
-                        }`}>
-                        {boy.isActive ? <><Check size={12} /> Active</> : <><X size={12} /> Inactive</>}
-                      </button>
-                    </td>
+<button onClick={() => toggleActive(boy)}
+                         className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                           boy.isActive ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700' : 'bg-red-100 text-red-700 hover:bg-green-100 hover:text-green-700'
+                         }`}>
+                         {boy.isActive ? <><Check size={12} /> Active</> : <><X size={12} /> Inactive</>}
+                       </button>
+                       <button onClick={() => { setMsgModal({ boyId: boy._id, name: boy.name }); setMsgText(''); }}
+                         className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors ml-2">
+                         <MessageSquare size={12} /> Message
+                       </button>
+                     </td>
                     <td className="px-6 py-4">
                       {boy.currentLocation?.lat ? (
                         <a
@@ -261,6 +292,47 @@ export default function AdminDeliveryBoys() {
                     <button onClick={handleSave} disabled={saving}
                       className="flex-1 py-2.5 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 transition-colors disabled:opacity-60">
                       {saving ? 'Adding...' : 'Add Delivery Boy'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Message Modal */}
+      <AnimatePresence>
+        {msgModal && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+              onClick={() => setMsgModal(null)} />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="fixed inset-0 z-51 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-fredoka text-xl font-bold text-gray-900">Message to {msgModal.name}</h3>
+                  <button onClick={() => setMsgModal(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <textarea
+                    value={msgText}
+                    onChange={e => setMsgText(e.target.value)}
+                    placeholder="Type your message..."
+                    rows={4}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500 text-sm"
+                  />
+                  <div className="flex gap-3">
+                    <button onClick={() => setMsgModal(null)}
+                      className="flex-1 py-2.5 border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 transition-colors">
+                      Cancel
+                    </button>
+                    <button onClick={sendMessage} disabled={msgSending || !msgText.trim()}
+                      className="flex-1 py-2.5 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 transition-colors disabled:opacity-60">
+                      {msgSending ? 'Sending...' : 'Send'}
                     </button>
                   </div>
                 </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Package, Clock, MapPin, Navigation, Star, ChevronRight, Truck, Radio, ExternalLink, Loader2 } from 'lucide-react';
 import LiveTrackingMap from '../components/LiveTrackingMap';
+import { useSocket } from '../hooks/useSocket';
 
 const STATUS_STEPS = ['pending', 'confirmed', 'preparing', 'reached_restaurant', 'picked_up', 'out_for_delivery', 'delivered'];
 const STATUS_LABELS = {
@@ -106,25 +107,16 @@ export default function OrderDetailPage() {
     fetchRoute();
   }, [order?.status, order?.deliveryBoyLocation, order?.customerLocation, fetchRoute]);
 
-  // Live status updates via socket
+// Live status updates via socket
+  const { trackOrder } = useSocket({ joinUser: null });
   useEffect(() => {
     if (!order) return;
-    let socket;
-    import('socket.io-client').then(({ io }) => {
-      socket = io(window.location.origin, { transports: ['websocket', 'polling'] });
-      socket.emit('track-order', order.orderId || order._id);
-      socket.on('status-update', (payload) => {
-        if (payload.orderId === (order.orderId || order._id)) {
-          setOrder(prev => ({ ...prev, status: payload.status }));
-        }
-      });
-      socket.on('delivery-location-update', (payload) => {
-        setOrder(prev => ({ ...prev, deliveryBoyLocation: { lat: payload.lat, lng: payload.lng, updatedAt: payload.updatedAt } }));
-      });
-    }).catch(() => {});
-    return () => { socket?.disconnect(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [order?.orderId, order?._id]);
+    const unsub = trackOrder(order.orderId || order._id,
+      payload => setOrder(prev => ({ ...prev, status: payload.status })),
+      payload => setOrder(prev => ({ ...prev, deliveryBoyLocation: { lat: payload.lat, lng: payload.lng, updatedAt: payload.updatedAt } }))
+    );
+    return unsub;
+  }, [order, trackOrder]);
 
   if (loading) {
     return (
