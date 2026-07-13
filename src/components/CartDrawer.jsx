@@ -57,7 +57,11 @@ export default function CartDrawer({ open, onClose }) {
     setCouponLoading(true);
     try {
       const authRaw = localStorage.getItem('bim_user');
-      const userId = authRaw ? JSON.parse(authRaw)?._id : undefined;
+      // Freshly-registered users (register-email/verify flow) get stored with an 'id' field,
+      // while logged-in users get '_id' — support both so coupon validation doesn't silently
+      // send userId: undefined right after registration.
+      const parsedUser = authRaw ? JSON.parse(authRaw) : null;
+      const userId = parsedUser?._id || parsedUser?.id;
       const res = await fetchWithTimeout('/api/coupons/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
