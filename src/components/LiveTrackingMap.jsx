@@ -57,7 +57,7 @@ function DriverMarker({ location }) {
   useEffect(() => {
     if (!isLoaded || !map || !location?.lat) return;
     const el = document.createElement('div');
-    el.innerHTML = `<div style="width:42px;height:42px;display:flex;align-items:center;justify-content:center"><img src="${motorcycleIconUrl}" width="40" height="40" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4))" /></div>`;
+    el.innerHTML = `<div style="width:42px;height:42px;display:flex;align-items:center;justify-content:center"><img src="${motorcycleIconUrl}" width="26" height="26" /></div>`;
     const m = new maplibregl.Marker({ element: el })
       .setLngLat([location.lng, location.lat])
       .addTo(map);
@@ -256,7 +256,7 @@ export default function LiveTrackingMap({
             <MarkerContent>
               {viewMode === 'delivery' ? (
                 <div className="w-10 h-10 flex items-center justify-center">
-                  <img src={userIconUrl} width="38" height="38" alt="Customer" className="drop-shadow-lg" />
+                  <img src={userIconUrl} width="24" height="24" alt="Customer" />
                 </div>
               ) : (
                 <MapPin size={30} className="text-red-500 fill-red-500 drop-shadow-lg" />
@@ -284,8 +284,8 @@ export default function LiveTrackingMap({
             <MarkerContent>
               <div className="w-10 h-10 flex items-center justify-center">
                 {viewMode === 'delivery'
-                  ? <img src={motorcycleIconUrl} width="38" height="38" alt="My Location" className="drop-shadow-lg" />
-                  : <img src={userIconUrl} width="38" height="38" alt="My Location" className="drop-shadow-lg" />}
+                  ? <img src={motorcycleIconUrl} width="26" height="26" alt="My Location" />
+                  : <img src={userIconUrl} width="24" height="24" alt="My Location" />}
               </div>
             </MarkerContent>
             <MarkerPopup closeButton>
