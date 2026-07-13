@@ -16,7 +16,6 @@ import { Server } from 'socket.io';
 import { createClient } from 'redis';
 import { createAdapter } from '@socket.io/redis-adapter';
 import mongoSanitize from 'express-mongo-sanitize';
-import csrf from 'csurf';
 import {
   generateOtp,
   hashOtp,
@@ -126,24 +125,15 @@ app.use(cors({
 app.use(cookieParser());
 
 // ─── CSRF PROTECTION ───────────────────────────────────────────────────────────
-const csrfProtection = csrf({ cookie: true });
-
-// Apply CSRF protection only in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(csrfProtection);
-} else {
-  // In dev, just pass through but still generate token
-  app.use((req, res, next) => {
-    req.csrfToken = () => 'dev-token';
-    next();
-  });
-}
-
-// Make CSRF token available to views
-app.use((req, res, next) => {
-  res.locals.csrfToken = req.csrfToken ? req.csrfToken() : null;
-  next();
-});
+// NOTE: We rely on httpOnly + sameSite:'strict' auth cookies (see
+// server/middleware/auth.js setAuthCookie) for CSRF protection instead of a
+// separate double-submit-token middleware. sameSite:'strict' cookies are not
+// sent on cross-site requests, which is what actually stops CSRF here. A prior
+// `csurf` middleware was wired up for production only, but no frontend code
+// ever fetched/sent the token, so every mutating request (login, logout,
+// orders, all admin actions) would fail with 403 as soon as NODE_ENV=production.
+// csurf is also archived/unmaintained upstream, so we removed it rather than
+// wiring up the missing frontend integration.
 
 app.use(fileUpload({
   useTempFiles: true,
@@ -1985,11 +1975,6 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     setAuthCookie(res, token, cookieName, 7 * 24 * 60 * 60 * 1000);
     res.json({ ok: true, user: { id: user._id, name: user.name, email: user.email, phone: user.phone, role: user.role, loyaltyPoints: user.loyaltyPoints } });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
-});
-
-// ─── CSRF TOKEN ENDPOINT ─────────────────────────────────────────────────────
-app.get('/api/csrf-token', (req, res) => {
-  res.json({ ok: true, csrfToken: req.csrfToken ? req.csrfToken() : null });
 });
 
 // ─── 404 HANDLER ─────────────────────────────────────────────────────────────
