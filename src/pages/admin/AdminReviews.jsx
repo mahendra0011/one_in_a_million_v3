@@ -73,10 +73,10 @@ export default function AdminReviews() {
     setTimeout(() => setToast(''), 3000);
   };
 
-  const fetchReviews = useCallback(async (pg = 1, vis = filter) => {
+  const fetchReviews = useCallback(async (pg = 1, vis = filter, lim = LIMIT) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: pg, limit: LIMIT });
+      const params = new URLSearchParams({ page: pg, limit: lim });
       if (vis !== 'all') params.set('visibility', vis);
       const res  = await fetchWithTimeout(`/api/admin/reviews?${params}`, {
         credentials: 'include',
@@ -85,7 +85,7 @@ export default function AdminReviews() {
       if (data.ok) {
         setReviews(prev => pg === 1 ? data.reviews : [...prev, ...data.reviews]);
         setTotal(data.total);
-        setHasMore((pg * LIMIT) < data.total);
+        setHasMore((pg * lim) < data.total);
       }
     } catch {}
     setLoading(false);
@@ -93,7 +93,9 @@ export default function AdminReviews() {
 
   useEffect(() => { queueMicrotask(() => { setPage(1); fetchReviews(1, filter); }); }, [filter, fetchReviews]);
 
-  useAutoRefresh({ fetchFn: () => fetchReviews(1, filter), interval: 60_000 });
+  // Re-fetch as a single page sized to everything already loaded (page * LIMIT), not just
+  // page 1 — otherwise a 60s auto-refresh would silently truncate a "Load More"'d list back down.
+  useAutoRefresh({ fetchFn: () => fetchReviews(1, filter, page * LIMIT), interval: 60_000 });
 
   const toggleVisibility = async (review) => {
     setActionLoading(p => ({ ...p, [review._id]: 'vis' }));

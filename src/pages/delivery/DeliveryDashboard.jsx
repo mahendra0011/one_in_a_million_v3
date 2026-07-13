@@ -220,6 +220,7 @@ export default function DeliveryDashboard() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
+  const [avgRating, setAvgRating] = useState(null);
   const photoInputRef = useRef(null);
   const watchIdRef = useRef(null);
 
@@ -258,6 +259,11 @@ export default function DeliveryDashboard() {
       const res2 = await fetchWithTimeout('/api/delivery/earnings', { credentials: 'include' });
       const data2 = await safeJson(res2);
       if (data2.ok && data2.recentOrders) setDeliveredOrders(data2.recentOrders);
+    } catch {}
+    try {
+      const res3 = await fetchWithTimeout('/api/delivery/ratings', { credentials: 'include' });
+      const data3 = await safeJson(res3);
+      if (data3.ok) setAvgRating(data3.average);
     } catch {}
     setLoading(false); setRefreshing(false);
   }, [headers]);
@@ -502,7 +508,7 @@ export default function DeliveryDashboard() {
     if (!o.date) return false;
     return new Date(o.date).toDateString() === new Date().toDateString();
   }).length;
-  const avgRating = 4.5;
+  const avgRatingDisplay = avgRating != null ? avgRating : '—';
 
   return (
     <div className="min-h-screen bg-[#0A0604] pb-24">
@@ -751,7 +757,7 @@ export default function DeliveryDashboard() {
               </div>
               <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-4">
                 <div className="flex items-center gap-2 mb-2"><Award size={16} className="text-yellow-400" /><p className="text-[#8E827B] text-xs font-semibold">Avg. Rating</p></div>
-                <p className="text-white font-black text-2xl">{avgRating} <span className="text-[#8E827B] text-sm">★</span></p>
+                <p className="text-white font-black text-2xl">{avgRatingDisplay} <span className="text-[#8E827B] text-sm">★</span></p>
               </div>
               <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-4">
                 <div className="flex items-center gap-2 mb-2"><Star size={16} className="text-[#F07D14]" /><p className="text-[#8E827B] text-xs font-semibold">Avg. per Order</p></div>
@@ -815,7 +821,7 @@ export default function DeliveryDashboard() {
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-4 text-center"><p className="text-[#F07D14] font-black text-xl">{totalDeliveries}</p><p className="text-[#8E827B] text-xs mt-1">Delivered</p></div>
               <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-4 text-center"><p className="text-green-400 font-black text-xl">₹{totalEarnings.toFixed(0)}</p><p className="text-[#8E827B] text-xs mt-1">Earned</p></div>
-              <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-4 text-center"><p className="text-yellow-400 font-black text-xl">{avgRating}</p><p className="text-[#8E827B] text-xs mt-1">Rating</p></div>
+              <div className="bg-[#1A1310] rounded-2xl border border-white/5 p-4 text-center"><p className="text-yellow-400 font-black text-xl">{avgRatingDisplay}</p><p className="text-[#8E827B] text-xs mt-1">Rating</p></div>
             </div>
 
             <button onClick={() => navigate('/delivery/profile')}
@@ -857,7 +863,7 @@ export default function DeliveryDashboard() {
                         <Bell size={16} className={notif.read ? 'text-[#8E827B]' : 'text-[#F07D14]'} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${notif.read ? 'text-[#A39791]' : 'text-white font-semibold'}`}>{notif.message || notif.title || 'Notification'}</p>
+                        <p className={`text-sm ${notif.read ? 'text-[#A39791]' : 'text-white font-semibold'}`}>{notif.body || notif.title || 'Notification'}</p>
                         {notif.createdAt && <p className="text-[#8E827B] text-xs mt-1">{timeAgo(notif.createdAt)}</p>}
                       </div>
                       {!notif.read && <span className="w-2 h-2 rounded-full bg-[#F07D14] shrink-0 mt-2" />}
