@@ -1175,7 +1175,9 @@ app.post('/api/orders/:id/generate-delivery-otp', deliveryOnly, otpLimiter, v.vO
     const otp = generateOtp();
     const otpHash = await hashOtp(otp);
     const expiry = new Date(Date.now() + 10 * 60 * 1000);
-    const order = await Order.findOneAndUpdate({ orderId: req.params.id }, { deliveryOtp: otpHash, deliveryOtpExpiry: expiry }, { new: true });
+    // Only the delivery boy this order is actually assigned to may trigger a customer OTP —
+    // previously any authenticated delivery boy could hit this route with an arbitrary order ID.
+    const order = await Order.findOneAndUpdate({ orderId: req.params.id, assignedTo: req.user.id }, { deliveryOtp: otpHash, deliveryOtpExpiry: expiry }, { new: true });
     if (!order) return res.status(404).json({ ok: false, error: 'Order not found' });
 
     if (order.customer?.email) await sendEmailOtp({ to: order.customer.email, otp, purpose: 'delivery_confirm', name: order.customer.name || 'Customer' }).catch(() => {});

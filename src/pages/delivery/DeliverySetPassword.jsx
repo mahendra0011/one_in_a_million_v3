@@ -61,7 +61,7 @@ export default function DeliverySetPassword() {
             <div className="relative">
               <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8E827B]" />
               <input required type={showPwd ? 'text' : 'password'} value={newPassword}
-                onChange={e => setNewPassword(e.target.value)} placeholder="Min. 6 characters"
+                onChange={e => setNewPassword(e.target.value)} placeholder="Min. 8 chars, incl. upper, lower, number & symbol"
                 className="w-full pl-9 pr-10 py-3 rounded-xl bg-[#16100D] border border-white/10 text-white placeholder:text-[#8E827B] focus:outline-none focus:border-[#F07D14] text-sm" />
               <button type="button" onClick={() => setShowPwd(p => !p)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8E827B] hover:text-white">

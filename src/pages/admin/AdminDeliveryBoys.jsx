@@ -173,6 +173,11 @@ export default function AdminDeliveryBoys() {
                         <span className={`w-1.5 h-1.5 rounded-full ${boy.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                         {boy.isOnline ? 'Online' : 'Offline'}
                       </span>
+                      {Array.isArray(boy.unavailableDays) && boy.unavailableDays.includes(new Date().getDay()) && (
+                        <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700" title={boy.availabilityNote || 'Marked unavailable today'}>
+                          ⚠️ Unavailable today
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
 <button onClick={() => toggleActive(boy)}
