@@ -1424,7 +1424,7 @@ app.get('/api/admin/notifications', adminOnly, async (req, res) => {
 
 app.post('/api/admin/notifications/send', adminOnly, async (req, res) => {
   try {
-    const { target, userQuery, title, message, type = 'info' } = req.body;
+    const { target, userQuery, title, message, type = 'system' } = req.body;
     if (!title?.trim() || !message?.trim()) return res.status(400).json({ ok: false, error: 'Title and message are required' });
     let sentCount = 0;
     const notifType = ['order_status','offer','review_reminder','system'].includes(type) ? type : 'system';
@@ -1515,7 +1515,7 @@ app.get('/api/analytics', adminOnly, async (req, res) => {
       Order.aggregate([{ $match: { createdAt: { $gte: weekStart, $lte: todayEnd } } }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } }, revenue: { $sum: '$totals.total' }, orders: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
       Order.aggregate([{ $match: { createdAt: { $gte: prevWeekStart, $lte: prevWeekEnd } } }, { $group: { _id: null, total: { $sum: '$totals.total' }, orders: { $sum: 1 } } }]),
       Order.aggregate([{ $match: { status: { $in: ['delivered', 'out_for_delivery', 'preparing', 'confirmed'] } } }, { $group: { _id: null, avg: { $avg: '$totals.total' } } }]),
-      Order.aggregate([{ $unwind: '$items' }, { $group: { _id: '$items.name', qty: { $sum: '$items.qty' }, revenue: { $sum: { $multiply: ['$items.price', '$items.qty'] } } } }, { $sort: { qty: -1 } }, { $limit: 5 }]),
+      Order.aggregate([{ $unwind: '$items' }, { $group: { _id: '$items.name', qty: { $sum: '$items.qty' }, revenue: { $sum: { $multiply: ['$items.unitPrice', '$items.qty'] } } } }, { $sort: { qty: -1 } }, { $limit: 5 }]),
       Order.aggregate([{ $match: { createdAt: { $gte: weekStart } } }, { $group: { _id: { $hour: { date: '$createdAt', timezone: '+05:30' } }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
       Order.countDocuments({ status: 'out_for_delivery' }),
       Order.countDocuments({ status: 'pending' }),

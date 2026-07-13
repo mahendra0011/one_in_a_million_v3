@@ -9,11 +9,14 @@ const TARGET_OPTIONS = [
   { value: 'single', label: '👤 Specific User', desc: 'Send to one user by phone/email' },
 ];
 
+// Values must match the Notification model's enum exactly (server/models/Notification.js):
+// ['order_status', 'offer', 'review_reminder', 'system']. Anything else silently
+// falls back to 'system' server-side, so these 4 stay in sync with that enum.
 const NOTIF_TYPES = [
-  { value: 'info', label: 'ℹ️ Info', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  { value: 'promo', label: '🎉 Promo', color: 'bg-orange-100 text-orange-700 border-orange-200' },
-  { value: 'alert', label: '⚠️ Alert', color: 'bg-red-100 text-red-700 border-red-200' },
-  { value: 'loyalty', label: '🏆 Loyalty', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  { value: 'system', label: '🔔 General', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  { value: 'offer', label: '🎉 Offer', color: 'bg-orange-100 text-orange-700 border-orange-200' },
+  { value: 'order_status', label: '📦 Order Update', color: 'bg-red-100 text-red-700 border-red-200' },
+  { value: 'review_reminder', label: '⭐ Review Reminder', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
 ];
 
 export default function AdminNotifications() {
@@ -21,7 +24,7 @@ export default function AdminNotifications() {
   const [userQuery, setUserQuery]   = useState('');
   const [title, setTitle]           = useState('');
   const [message, setMessage]       = useState('');
-  const [type, setType]             = useState('info');
+  const [type, setType]             = useState('system');
   const [sending, setSending]       = useState(false);
   const [result, setResult]         = useState(null); // { ok, msg }
   const [history, setHistory]       = useState([]);
