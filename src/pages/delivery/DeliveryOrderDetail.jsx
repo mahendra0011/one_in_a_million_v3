@@ -79,6 +79,10 @@ export default function DeliveryOrderDetail() {
 
   const fetchRoute = useCallback(async (start, end) => {
     if (!start?.lat || !start?.lng || !end?.lat || !end?.lng) return;
+    if (distanceMeters(start.lat, start.lng, end.lat, end.lng) < 12) {
+      setRouteGeometry([]);
+      return;
+    }
     setRouteLoading(true);
     try {
       const res = await fetchWithTimeout('/api/routes/directions', { method: 'POST', headers, credentials: 'include', body: JSON.stringify({ start, end }) });

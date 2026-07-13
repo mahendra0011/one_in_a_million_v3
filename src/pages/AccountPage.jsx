@@ -480,6 +480,10 @@ function TrackDelivery({ order }) {
   const fetchRoute = useCallback(async () => {
     const o = orderRef.current;
     if (!o.customerLocation?.lat || !o.deliveryBoyLocation?.lat) return;
+    if (distanceMeters(o.deliveryBoyLocation.lat, o.deliveryBoyLocation.lng, o.customerLocation.lat, o.customerLocation.lng) < 12) {
+      setRouteGeometry([]);
+      return;
+    }
     setRouteLoading(true);
     try {
       const res = await fetchWithTimeout('/api/routes/directions', {
@@ -570,6 +574,7 @@ function TrackDelivery({ order }) {
           routeGeometry={routeGeometry}
           height={200}
           showControls={true}
+          showLocate={true}
           viewMode="user"
           onMarkDestination={() => fetchRoute()}
         />

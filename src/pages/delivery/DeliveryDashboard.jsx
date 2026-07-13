@@ -1,4 +1,4 @@
-import { fetchWithTimeout, straightLineRoute } from '../../lib/utils';
+import { fetchWithTimeout, straightLineRoute, distanceMeters } from '../../lib/utils';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LocateFixed, MapPin, Navigation, Package, Timer, Bike, ShoppingBag, X, AlertTriangle, BellRing, Radio, ChevronDown, Phone, RefreshCw, CheckCircle, Clock, Star, Bell, User, LogOut, ChevronRight, Camera, Loader2, Trophy, DollarSign, TrendingUp, Award } from 'lucide-react';
@@ -100,6 +100,7 @@ function ActiveOrderCard({
                 routeGeometry={routeGeometry}
                 height={380}
                 viewMode="delivery"
+                showLocate={true}
                 onMarkDestination={(dest) => {
                   const start = { lat: driverPath[driverPath.length - 1]?.lat, lng: driverPath[driverPath.length - 1]?.lng };
                   if (dest?.lat && dest?.lng && start?.lat && start?.lng) fetchRoute(start, dest);
@@ -299,6 +300,10 @@ export default function DeliveryDashboard() {
 
   const fetchRoute = useCallback(async (start, end) => {
     if (!start?.lat || !start?.lng || !end?.lat || !end?.lng) return;
+    if (distanceMeters(start.lat, start.lng, end.lat, end.lng) < 12) {
+      setRouteGeometry([]);
+      return;
+    }
     setRouteLoading(true);
     try {
       const res = await fetchWithTimeout('/api/routes/directions', { method: 'POST', headers, credentials: 'include', body: JSON.stringify({ start, end }) });

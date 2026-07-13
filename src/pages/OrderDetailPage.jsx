@@ -49,6 +49,10 @@ export default function OrderDetailPage() {
   const fetchRoute = useCallback(async () => {
     const o = orderRef.current;
     if (!o?.deliveryBoyLocation?.lat || !o?.customerLocation?.lat) return;
+    if (distanceMeters(o.deliveryBoyLocation.lat, o.deliveryBoyLocation.lng, o.customerLocation.lat, o.customerLocation.lng) < 12) {
+      setRouteGeometry([]);
+      return;
+    }
     setRouteLoading(true);
     try {
       const res = await fetchWithTimeout('/api/routes/directions', {

@@ -17,6 +17,22 @@ function fmtDist(m) {
   return `${(m / 1000).toFixed(1)}km`;
 }
 
+// Nudges a lat/lng a few metres in a given compass bearing. Used purely for
+// on-screen marker placement — when two markers sit at (or very near) the
+// exact same coordinates (common in test data, or right after a delivery
+// boy accepts an order at the restaurant), they'd render as one icon
+// stacked on top of the other and look "missing". This keeps every icon
+// visible without touching the real distance/route calculations, which
+// still use the unmodified coordinates.
+function offsetLatLng(lat, lng, bearingDeg, meters) {
+  const bearing = (bearingDeg * Math.PI) / 180;
+  const dLat = (meters * Math.cos(bearing)) / 111320;
+  const dLng = (meters * Math.sin(bearing)) / (111320 * Math.cos((lat * Math.PI) / 180) || 1);
+  return { lat: lat + dLat, lng: lng + dLng };
+}
+
+const DECLUTTER_THRESHOLD_M = 12;
+
 function animateMarkerTo(marker, lng, lat, duration = 500) {
   const start = performance.now();
   const startCoords = marker.getLngLat();
@@ -163,6 +179,31 @@ export default function LiveTrackingMap({
     return () => clearInterval(interval);
   }, []);
 
+  // Display-only coordinates for the driver and "my location" markers.
+  // customerLocation is treated as the fixed anchor and always drawn at its
+  // real position; the other two get nudged apart on-screen if they'd
+  // otherwise land within a few metres of the anchor (or of each other),
+  // which is exactly what happens with identical test coordinates or right
+  // when a delivery boy is standing at the restaurant/customer address.
+  const displayDriverLocation = useMemo(() => {
+    if (!driverLocation?.lat) return driverLocation;
+    if (customerLocation?.lat && calcDist(driverLocation.lat, driverLocation.lng, customerLocation.lat, customerLocation.lng) < DECLUTTER_THRESHOLD_M) {
+      return { ...driverLocation, ...offsetLatLng(customerLocation.lat, customerLocation.lng, 320, 20) };
+    }
+    return driverLocation;
+  }, [driverLocation, customerLocation]);
+
+  const displayMyLocation = useMemo(() => {
+    if (!myLocation?.lat) return myLocation;
+    if (customerLocation?.lat && calcDist(myLocation.lat, myLocation.lng, customerLocation.lat, customerLocation.lng) < DECLUTTER_THRESHOLD_M) {
+      return { ...myLocation, ...offsetLatLng(customerLocation.lat, customerLocation.lng, 80, 20) };
+    }
+    if (driverLocation?.lat && calcDist(myLocation.lat, myLocation.lng, driverLocation.lat, driverLocation.lng) < DECLUTTER_THRESHOLD_M) {
+      return { ...myLocation, ...offsetLatLng(driverLocation.lat, driverLocation.lng, 200, 20) };
+    }
+    return myLocation;
+  }, [myLocation, customerLocation, driverLocation]);
+
   return (
     <div style={{ height, position: 'relative' }} className="rounded-2xl overflow-hidden border border-white/10 bg-[#0A0604]">
       <Map center={center} zoom={14}>
@@ -235,13 +276,13 @@ export default function LiveTrackingMap({
         {/* Delivery boy marker (🛵) — only shown on the customer's map. On the
             delivery boy's own map this would just duplicate the "My Location"
             marker below (both come from the same GPS), so it's skipped there. */}
-        {driverLocation?.lat && viewMode === 'user' && <DriverMarker location={driverLocation} viewMode={viewMode} />}
+        {driverLocation?.lat && viewMode === 'user' && <DriverMarker location={displayDriverLocation} viewMode={viewMode} />}
 
         {/* Current location marker — shows the viewer's own live GPS position,
             on both the user dashboard and the delivery-boy dashboard,
             independent of whatever the destination/driver pins show. */}
         {myLocation && (
-          <MapMarker longitude={myLocation.lng} latitude={myLocation.lat}>
+          <MapMarker longitude={displayMyLocation.lng} latitude={displayMyLocation.lat}>
             <MarkerContent>
               <div className="w-10 h-10 bg-green-500 border-3 border-white rounded-full flex items-center justify-center shadow-xl shadow-green-500/40">
                 📍
@@ -257,11 +298,14 @@ export default function LiveTrackingMap({
         )}
       </Map>
 
-      {/* Route icon - for manual route fetch */}
-      {showControls && driverLocation?.lat && customerLocation?.lat && (
+      {/* Route icon - for manual route fetch. Anchored bottom-right so it
+          never overlaps the top-right zoom/compass/locate stack, regardless
+          of map height (a fixed pixel offset here previously drifted out of
+          alignment on taller maps). */}
+      {showControls && driverLocation?.lat && customerLocation?.lat && distance != null && distance >= DECLUTTER_THRESHOLD_M && (
         <button
           onClick={() => onMarkDestination?.(customerLocation)}
-          className="absolute top-[204px] right-2 z-10 w-9 h-9 rounded-lg bg-black/70 border border-white/20 flex items-center justify-center hover:bg-black/90 transition-all shadow-lg"
+          className="absolute bottom-3 right-2 z-10 w-9 h-9 rounded-lg bg-black/70 border border-white/20 flex items-center justify-center hover:bg-black/90 transition-all shadow-lg"
           title="Show route"
         >
           <Navigation size={18} className="text-white" />
@@ -272,7 +316,7 @@ export default function LiveTrackingMap({
       <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
         {distance != null && (
           <div className="bg-black/75 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg backdrop-blur-sm border border-white/10">
-            📏 {fmtDist(distance)}
+            {distance < DECLUTTER_THRESHOLD_M ? '📍 Arrived' : `📏 ${fmtDist(distance)}`}
           </div>
         )}
       </div>
