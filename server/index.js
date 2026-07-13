@@ -39,7 +39,7 @@ import fileUpload from 'express-fileupload';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import helmet from 'helmet';
-import { generalLimiter, authLimiter, otpLimiter, passwordLimiter, orderLimiter, reservationLimiter, uploadLimiter, couponLimiter } from './middleware/rateLimiters.js';
+import { generalLimiter, authLimiter, otpLimiter, passwordLimiter, orderLimiter, reservationLimiter, uploadLimiter, couponLimiter, liveTrackingLimiter } from './middleware/rateLimiters.js';
 import { validate } from './middleware/validate.js';
 import * as v from './middleware/validators.js';
 import { globalErrorHandler, logError } from './middleware/errorHandler.js';
@@ -697,7 +697,7 @@ app.get('/api/delivery/orders/:orderId', deliveryOnly, v.vDeliveryOrderIdParam, 
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
-app.patch('/api/delivery/orders/:orderId/location', deliveryOnly, v.vDeliveryLocation, validate, async (req, res) => {
+app.patch('/api/delivery/orders/:orderId/location', liveTrackingLimiter, deliveryOnly, v.vDeliveryLocation, validate, async (req, res) => {
   try {
     const { lat, lng } = req.body;
     const order = await Order.findOneAndUpdate({ orderId: req.params.orderId, assignedTo: req.user.id }, { deliveryBoyLocation: { lat, lng, updatedAt: new Date() } }, { new: true });
@@ -762,14 +762,14 @@ app.patch('/api/delivery/status', deliveryOnly, v.vDeliveryOnlineStatus, validat
 });
 
 // ─── DELIVERY: CURRENT LOCATION ──────────────────────────────────────────────
-app.get('/api/delivery/my-location', deliveryOnly, async (req, res) => {
+app.get('/api/delivery/my-location', liveTrackingLimiter, deliveryOnly, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('currentLocation name isOnline');
     res.json({ ok: true, location: user.currentLocation });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
 
-app.patch('/api/delivery/my-location', deliveryOnly, async (req, res) => {
+app.patch('/api/delivery/my-location', liveTrackingLimiter, deliveryOnly, async (req, res) => {
   try {
     const { lat, lng } = req.body;
     if (typeof lat !== 'number' || typeof lng !== 'number') return res.status(400).json({ ok: false, error: 'lat aur lng required hain (numbers)' });
@@ -1048,9 +1048,19 @@ app.get('/api/orders/my', authenticate, async (req, res) => {
   res.json({ ok: true, orders });
 });
 
-app.get('/api/orders/:id', v.vOrderIdParam, validate, async (req, res) => {
+app.get('/api/orders/:id', authenticate, v.vOrderIdParam, validate, async (req, res) => {
   const order = await Order.findOne({ orderId: req.params.id }).populate('assignedTo', 'name phone currentLocation');
   if (!order) return res.status(404).json({ ok: false, error: 'Order not found' });
+  // Only the customer who placed the order, the delivery boy assigned to
+  // it, or an admin may view it — previously this endpoint was fully
+  // public, leaking customer address/phone/coords and live delivery-boy
+  // location to anyone who guessed an orderId (bug report §6).
+  const isOwner = order.userId && String(order.userId) === String(req.user.id);
+  const isAssignedDelivery = order.assignedTo && String(order.assignedTo._id || order.assignedTo) === String(req.user.id);
+  const isAdmin = req.user.role === 'admin';
+  if (!isOwner && !isAssignedDelivery && !isAdmin) {
+    return res.status(403).json({ ok: false, error: 'Forbidden' });
+  }
   res.json({ ok: true, order });
 });
 
@@ -1857,7 +1867,7 @@ const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT
 // ─── ROUTING & MAP MATCHING ───────────────────────────────────────────────────────
 // Step 8: Route generation via OpenRouteService
 const ORS_API_KEY = process.env.ORS_API_KEY;
-app.post('/api/routes/directions', v.vORSRoute, validate, async (req, res) => {
+app.post('/api/routes/directions', liveTrackingLimiter, v.vORSRoute, validate, async (req, res) => {
   try {
     const { start, end } = req.body;
     if (!ORS_API_KEY) {

@@ -15,12 +15,23 @@ const limitHandler = (req, res) => {
 // ── General API limiter ──────────────────────────────────────────────────────
 // Har IP ko 15 minute mein max 300 requests — normal browsing/usage easily
 // fit ho jaata hai, par scripted abuse/scraping slow ho jaata hai.
+// High-frequency live-tracking paths get their own limiter below (§3d) and
+// are excluded here so an active delivery's GPS/route traffic can't burn
+// through the general budget and start 429-ing unrelated API calls too.
+const LIVE_TRACKING_PATHS = [
+  '/api/routes/directions',
+  '/api/delivery/my-location',
+];
+const isLiveTrackingPath = (req) =>
+  LIVE_TRACKING_PATHS.includes(req.path) || /^\/api\/delivery\/orders\/[^/]+\/location$/.test(req.path);
+
 export const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   handler: limitHandler,
+  skip: isLiveTrackingPath,
 });
 
 // ── Auth limiter ──────────────────────────────────────────────────────────────
@@ -85,6 +96,20 @@ export const reservationLimiter = rateLimit({
 export const uploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: limitHandler,
+});
+
+// ── Live tracking limiter ─────────────────────────────────────────────────────
+// /api/routes/directions and /api/delivery/*/location get hit far more often
+// than normal browsing (every GPS tick during an active delivery). Sharing
+// the 300/15min general limiter meant an active delivery could exhaust it and
+// start 429-ing location updates and order-status fetches too (bug report
+// §3d). Give these endpoints their own, more generous budget.
+export const liveTrackingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1200,
   standardHeaders: true,
   legacyHeaders: false,
   handler: limitHandler,

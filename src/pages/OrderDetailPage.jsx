@@ -202,6 +202,7 @@ export default function OrderDetailPage() {
                 showControls={true}
                 showLocate={true}
                 viewMode="user"
+                onMarkDestination={() => fetchRoute()}
               />
               {loc && (
                 <p className="text-[#8E827B] text-xs text-center mt-2">

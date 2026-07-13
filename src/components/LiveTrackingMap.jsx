@@ -216,8 +216,8 @@ export default function LiveTrackingMap({
 
         {driverLocation?.lat && <DriverMarker location={driverLocation} viewMode={viewMode} />}
         
-        {/* Current location marker - shows user's location when driver location is being tracked */}
-        {viewMode === 'user' && myLocation && !customerLocation && (
+        {/* Current location marker - shows user's own live location, independent of destination pin */}
+        {viewMode === 'user' && myLocation && (
           <MapMarker longitude={myLocation.lng} latitude={myLocation.lat}>
             <MarkerContent>
               <div className="w-10 h-10 bg-green-500 border-3 border-white rounded-full flex items-center justify-center shadow-xl shadow-green-500/40">

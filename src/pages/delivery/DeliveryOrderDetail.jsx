@@ -345,6 +345,12 @@ export default function DeliveryOrderDetail() {
                showControls={true}
                showLocate={true}
                viewMode="delivery"
+               onMarkDestination={(dest) => {
+                 const start = order?.deliveryBoyLocation;
+                 if (dest?.lat && dest?.lng && start?.lat && start?.lng) {
+                   fetchRoute({ lat: start.lat, lng: start.lng }, { lat: dest.lat, lng: dest.lng });
+                 }
+               }}
              />
             <p className="text-center text-green-400 text-xs font-semibold">
               🛵 Driver is on the way — distance updates in real-time

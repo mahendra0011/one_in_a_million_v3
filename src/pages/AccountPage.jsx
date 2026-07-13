@@ -562,6 +562,7 @@ function TrackDelivery({ order }) {
           height={200}
           showControls={true}
           viewMode="user"
+          onMarkDestination={() => fetchRoute()}
         />
       ) : (
         <div className="h-[200px] bg-[#16100D] rounded-xl flex items-center justify-center">
