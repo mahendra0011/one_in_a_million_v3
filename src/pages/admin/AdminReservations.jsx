@@ -4,6 +4,7 @@ import { Search, RefreshCw, Calendar, Clock, Users } from 'lucide-react';
 import { SkeletonTable } from '../../components/admin/SkeletonRow';
 import { useSocket } from '../../hooks/useSocket';
 const STATUS_OPTIONS = ['pending', 'confirmed', 'cancelled'];
+const headers = { 'Content-Type': 'application/json' };
 const STATUS_STYLE = {
   pending:   'bg-yellow-100 text-yellow-700',
   confirmed: 'bg-green-100 text-green-700',
