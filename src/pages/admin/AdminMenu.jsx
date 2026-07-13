@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 const CATEGORIES = ['burgers', 'sides', 'drinks', 'combos'];
 const SUBCATS = ['', 'beef', 'chicken', 'veg', 'special'];
+const headers = { 'Content-Type': 'application/json' };
 
 const emptyForm = {
   name: '', category: 'burgers', subcat: '', price: '', badge: '', desc: '',
