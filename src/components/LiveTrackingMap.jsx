@@ -1,22 +1,9 @@
 import { useRef, useEffect, useMemo, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { Map, MapMarker, MarkerContent, MarkerPopup, MapRoute, MapControls, useMap } from '../components/ui/map';
-import { MapPin, Navigation, User } from 'lucide-react';
-
-// Simple flat motorcycle/scooter glyph for the delivery-boy marker — drawn
-// as plain SVG (two wheels, frame, handlebar) rather than pulled from an
-// icon pack, so it can be embedded directly as a raw HTML string for the
-// vanilla maplibre marker element below (no React needed there) with no
-// external licensing/attribution to track.
-const MOTORCYCLE_SVG = `
-<svg viewBox="0 0 24 24" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="5.5" cy="17.5" r="3" stroke="white" stroke-width="1.8"/>
-  <circle cx="18.5" cy="17.5" r="3" stroke="white" stroke-width="1.8"/>
-  <path d="M5.5 17.5 10 9.5h4.5l2.5 5.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M10 9.5 11.5 6h3" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M14.5 15 18.5 15" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
-  <circle cx="14.5" cy="6.8" r="1.1" fill="white"/>
-</svg>`.trim();
+import { MapPin, Navigation } from 'lucide-react';
+import motorcycleIconUrl from '../assets/icons/motorcycle-icon.svg';
+import userIconUrl from '../assets/icons/user-icon.svg';
 
 function calcDist(lat1, lng1, lat2, lng2) {
   const R = 6371e3;
@@ -70,7 +57,7 @@ function DriverMarker({ location }) {
   useEffect(() => {
     if (!isLoaded || !map || !location?.lat) return;
     const el = document.createElement('div');
-    el.innerHTML = `<div style="width:42px;height:42px;background:#F07D14;border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 15px rgba(240,125,20,0.5)">${MOTORCYCLE_SVG}</div>`;
+    el.innerHTML = `<div style="width:42px;height:42px;background:#F07D14;border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 15px rgba(240,125,20,0.5);overflow:hidden"><img src="${motorcycleIconUrl}" width="26" height="26" style="filter:drop-shadow(0 0 1px rgba(0,0,0,0.3))" /></div>`;
     const m = new maplibregl.Marker({ element: el })
       .setLngLat([location.lng, location.lat])
       .addTo(map);
@@ -106,19 +93,6 @@ function RestaurantMarker({ location }) {
   }, [isLoaded, map, location?.lat]);
 
   return null;
-}
-
-function MotorcycleIcon({ size = 22 }) {
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="5.5" cy="17.5" r="3" stroke="white" strokeWidth="1.8" />
-      <circle cx="18.5" cy="17.5" r="3" stroke="white" strokeWidth="1.8" />
-      <path d="M5.5 17.5 10 9.5h4.5l2.5 5.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M10 9.5 11.5 6h3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M14.5 15 18.5 15" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="14.5" cy="6.8" r="1.1" fill="white" />
-    </svg>
-  );
 }
 
 export default function LiveTrackingMap({
@@ -281,8 +255,8 @@ export default function LiveTrackingMap({
           <MapMarker longitude={customerLocation.lng} latitude={customerLocation.lat}>
             <MarkerContent>
               {viewMode === 'delivery' ? (
-                <div className="w-10 h-10 bg-red-600 border-3 border-white rounded-full flex items-center justify-center shadow-xl shadow-red-600/40">
-                  <User size={20} className="text-white" />
+                <div className="w-10 h-10 bg-red-600 border-3 border-white rounded-full flex items-center justify-center shadow-xl shadow-red-600/40 overflow-hidden">
+                  <img src={userIconUrl} width="24" height="24" alt="Customer" />
                 </div>
               ) : (
                 <MapPin size={30} className="text-red-500 fill-red-500 drop-shadow-lg" />
@@ -308,8 +282,10 @@ export default function LiveTrackingMap({
         {myLocation && (
           <MapMarker longitude={displayMyLocation.lng} latitude={displayMyLocation.lat}>
             <MarkerContent>
-              <div className="w-10 h-10 bg-green-500 border-3 border-white rounded-full flex items-center justify-center shadow-xl shadow-green-500/40">
-                {viewMode === 'delivery' ? <MotorcycleIcon size={22} /> : <User size={20} className="text-white" />}
+              <div className="w-10 h-10 bg-green-500 border-3 border-white rounded-full flex items-center justify-center shadow-xl shadow-green-500/40 overflow-hidden">
+                {viewMode === 'delivery'
+                  ? <img src={motorcycleIconUrl} width="26" height="26" alt="My Location" />
+                  : <img src={userIconUrl} width="24" height="24" alt="My Location" />}
               </div>
             </MarkerContent>
             <MarkerPopup closeButton>
