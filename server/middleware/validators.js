@@ -341,11 +341,19 @@ export const vUpdateSettings = [
   body('address').optional().trim().isLength({ min: 1, max: 300 }),
   body('phone').optional().trim().matches(/^\+?[0-9]{7,15}$/).withMessage('Enter a valid phone number'),
   body('openTime').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('openTime must be HH:mm'),
-  body('closeTime').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('closeTime must be HH:mm'),
+  body('closeTime').optional().matches(/^([01]\d|2[0-3]):([0-5\d)$/).withMessage('closeTime must be HH:mm'),
   body('deliveryRadius').optional().isFloat({ min: 0 }).withMessage('deliveryRadius must be a positive number'),
   body('deliveryCharge').optional().isFloat({ min: 0 }).withMessage('deliveryCharge must be a positive number'),
   body('minOrderAmount').optional().isFloat({ min: 0 }).withMessage('minOrderAmount must be a positive number'),
   body('isOpen').optional().isBoolean(),
+];
+
+export const vContactForm = [
+  body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 80 }),
+  body('email').trim().notEmpty().withMessage('Email is required').isEmail().withMessage('Enter a valid email').normalizeEmail(),
+  body('phone').optional({ checkFalsy: true }).trim().matches(/^\+?[0-9]{7,15}$/).withMessage('Enter a valid phone number'),
+  body('subject').trim().notEmpty().withMessage('Subject is required').isLength({ max: 120 }),
+  body('message').trim().notEmpty().withMessage('Message is required').isLength({ max: 2000 }),
 ];
 
 // ─── ADMIN SETUP ───────────────────────────────────────────────────────────────

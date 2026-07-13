@@ -2094,17 +2094,12 @@ app.post('/api/contact', v.vContactForm, validate, async (req, res) => {
     // Admin notification create karo
     await AdminNotifLog.create({
       target: 'contact',
-      userQuery: `${name} <${email}> | ${phone}`,
+      userQuery: `${name} <${email}> | ${phone || '—'}`,
       title: subject,
       message,
       type: 'contact',
       sentCount: 0
     });
-    // Email notification bhejo agar settings me email set hai
-    const settings = await getSettings();
-    if (settings.email) {
-      sendContactFormEmail({ adminEmail: settings.email, name, email, phone, subject, message });
-    }
     res.status(201).json({ ok: true, message: 'Message received! We will get back to you soon.' });
   } catch (err) { res.status(500).json({ ok: false, error: err.message }); }
 });
