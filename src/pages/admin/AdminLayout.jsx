@@ -50,7 +50,7 @@ export default function AdminLayout() {
     } catch {}
     localStorage.removeItem('bim_user');
     dispatch(logout());
-    navigate('/admin/login');
+    navigate('/login');
   };
 
   const isActive = (item) => item.exact

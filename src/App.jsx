@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useCallback, useEffect, useRef } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { addItem, fetchServerCart, syncCartToServer, validateCartItems } from './store/slices/cartSlice';
 import { fetchNotifications, pushNotification, clearNotificationsState } from './store/slices/notificationSlice';
@@ -235,6 +235,7 @@ export default function App() {
             </Route>
 
             {/* Delivery Boy Routes */}
+            <Route path="/delivery/login" element={<Navigate to="/login" replace />} />
             <Route path="/delivery/set-password" element={<DeliverySetPassword />} />
             <Route path="/delivery" element={<DeliveryGuard><DeliveryDashboard /></DeliveryGuard>} />
             <Route path="/delivery/orders/:orderId" element={<DeliveryGuard><DeliveryOrderDetail /></DeliveryGuard>} />

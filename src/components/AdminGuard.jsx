@@ -36,7 +36,7 @@ export default function AdminGuard({ children }) {
   }
 
   if (status === 'fail') {
-    return <Navigate to="/admin/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return children;

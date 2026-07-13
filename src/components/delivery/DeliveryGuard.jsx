@@ -49,7 +49,7 @@ export default function DeliveryGuard({ children }) {
   }
 
   if (status === 'fail') {
-    return <Navigate to="/delivery/login" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return children;
