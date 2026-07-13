@@ -83,8 +83,8 @@ function buildTopItems(orders) {
     (o.items || []).forEach(item => {
       const key = item.name || 'Unknown';
       if (!map[key]) map[key] = { name: key, orders: 0, revenue: 0 };
-      map[key].orders  += (item.quantity || 1);
-      map[key].revenue += Math.round((item.price || 0) * (item.quantity || 1));
+      map[key].orders  += (item.qty || 1);
+      map[key].revenue += Math.round((item.unitPrice || 0) * (item.qty || 1));
     });
   });
   return Object.values(map).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
@@ -95,7 +95,7 @@ function buildCategoryData(orders) {
   orders.forEach(o => {
     (o.items || []).forEach(item => {
       const cat = item.category || 'other';
-      const rev = Math.round((item.price || 0) * (item.quantity || 1));
+      const rev = Math.round((item.unitPrice || 0) * (item.qty || 1));
       map[cat] = (map[cat] || 0) + rev; totalRev += rev;
     });
   });
