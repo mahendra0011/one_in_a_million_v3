@@ -86,7 +86,7 @@ export default function AdminDeliveryBoys() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ message: msgText }),
+        body: JSON.stringify({ title: 'Message from Admin', body: msgText }),
       });
       const data = await res.json();
       if (data.ok) {
