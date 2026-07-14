@@ -32,6 +32,8 @@
     font-family: var(--font-sans);
     color: var(--color-ink);
     background: var(--color-paper);
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
 
   * {
@@ -45,11 +47,23 @@
 
   button {
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
 
   img {
     display: block;
     max-width: 100%;
+    height: auto;
+  }
+
+  /* Mobile viewport fix */
+  @viewport {
+    zoom: 1;
+  }
+
+  /* Prevent horizontal scroll on mobile */
+  .overflow-x-visible {
+    overflow-x: visible !important;
   }
 }
 
@@ -59,6 +73,35 @@
   }
   .font-anton {
     font-family: "Anton", "Inter", sans-serif;
+  }
+  
+  /* Mobile-first responsive text sizing */
+  .text-responsive-xl {
+    @media (max-width: 639px) { font-size: 1.5rem; }
+    @media (min-width: 640px) { font-size: 2.25rem; }
+    @media (min-width: 768px) { font-size: 3rem; }
+    @media (min-width: 1024px) { font-size: 3.75rem; }
+  }
+  
+  .text-responsive-lg {
+    @media (max-width: 639px) { font-size: 1.875rem; }
+    @media (min-width: 640px) { font-size: 2.25rem; }
+    @media (min-width: 768px) { font-size: 3rem; }
+    @media (min-width: 1024px) { font-size: 3.75rem; }
+  }
+  
+  .text-responsive-md {
+    @media (max-width: 639px) { font-size: 1.5rem; }
+    @media (min-width: 640px) { font-size: 2rem; }
+    @media (min-width: 768px) { font-size: 2.25rem; }
+    @media (min-width: 1024px) { font-size: 3rem; }
+  }
+  
+  .text-responsive-sm {
+    @media (max-width: 639px) { font-size: 1.25rem; }
+    @media (min-width: 640px) { font-size: 1.5rem; }
+    @media (min-width: 768px) { font-size: 1.875rem; }
+    @media (min-width: 1024px) { font-size: 2.25rem; }
   }
 }
 
@@ -79,4 +122,33 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-orange);
+}
+
+/* Mobile-safe fixed heights for images */
+@media (max-width: 639px) {
+  .mobile-h-48 { height: 12rem !important; }
+  .mobile-h-56 { height: 14rem !important; }
+  .mobile-h-64 { height: 16rem !important; }
+  .mobile-h-28 { height: 7rem !important; }
+  
+  /* Prevent overflow on small screens */
+  .mobile-overflow-x-auto {
+    overflow-x: auto !important;
+  }
+  .mobile-grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .mobile-grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .mobile-grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Responsive fix for mobile grids with col-span */
+@media (max-width: 639px) {
+  .mobile-col-span-2 {
+    grid-column: span 2 / span 2 !important;
+  }
 }
