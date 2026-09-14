@@ -1,3 +1,12 @@
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+
+export function resolveApiUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('/api')) return `${API_BASE}${url}`;
+  return url;
+}
+
 /**
  * fetchWithTimeout — AbortController-based timeout wrapper around fetch.
  * Default timeout: 15 seconds. Pass { timeout: ms } in options to override.
@@ -5,9 +14,10 @@
  */
 export function fetchWithTimeout(url, options = {}) {
   const { timeout = 15000, ...fetchOptions } = options;
+  const targetUrl = resolveApiUrl(url);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
-  return fetch(url, { ...fetchOptions, signal: controller.signal })
+  return fetch(targetUrl, { ...fetchOptions, signal: controller.signal })
     .finally(() => clearTimeout(timer))
     .catch(err => {
       if (err.name === 'AbortError') {
@@ -19,11 +29,12 @@ export function fetchWithTimeout(url, options = {}) {
 
 export function retryFetchWithTimeout(url, options = {}, retries = 3) {
   const { timeout = 15000, ...fetchOptions } = options;
+  const targetUrl = resolveApiUrl(url);
   return new Promise((resolve, reject) => {
     const attempt = (n) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeout);
-      fetch(url, { ...fetchOptions, signal: controller.signal })
+      fetch(targetUrl, { ...fetchOptions, signal: controller.signal })
         .finally(() => clearTimeout(timer))
         .then(resolve)
         .catch(err => {

@@ -19,8 +19,9 @@
 import { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react';
 
 function getSocketUrl() {
-  // In dev: vite proxy handles /api, socket is on same origin
-  // In prod: same domain
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
+  }
   return window.location.origin;
 }
 

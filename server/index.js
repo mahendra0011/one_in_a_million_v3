@@ -121,17 +121,23 @@ app.use((req, res, next) => {
 });
 
 // ─── CORS CONFIGURATION ───────────────────────────────────────────────────────────
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [
+const rawAllowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [
   process.env.CLIENT_URL,
   process.env.RENDER_EXTERNAL_URL,
   'http://localhost:5173'
-].filter(Boolean);
+];
+const allowedOrigins = rawAllowedOrigins
+  .filter(Boolean)
+  .map(o => o.replace(/\/+$/, ''));
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin) return callback(null, true);
+    const cleanOrigin = origin.replace(/\/+$/, '');
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes(cleanOrigin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error(`Not allowed by CORS: ${origin}`));
     }
   },
   credentials: true
@@ -181,10 +187,12 @@ const server = createServer(app);
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) return callback(null, true);
+      const cleanOrigin = origin.replace(/\/+$/, '');
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes(cleanOrigin)) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        callback(new Error(`Not allowed by CORS: ${origin}`));
       }
     },
     credentials: true

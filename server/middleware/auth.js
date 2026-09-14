@@ -24,19 +24,40 @@ async function isTokenBlacklisted(token) {
   }
 }
 
+const isCrossSite = () => {
+  if (process.env.COOKIE_CROSS_SITE === 'true') return true;
+  if (process.env.NODE_ENV === 'production' && process.env.CLIENT_URL) {
+    try {
+      const clientOrigin = new URL(process.env.CLIENT_URL).origin;
+      const serverOrigin = process.env.RENDER_EXTERNAL_URL ? new URL(process.env.RENDER_EXTERNAL_URL).origin : '';
+      return !serverOrigin || clientOrigin !== serverOrigin;
+    } catch {
+      return true;
+    }
+  }
+  return false;
+};
+
 // ─── COOKIE HELPERS ───────────────────────────────────────────────────────────
 export function setAuthCookie(res, token, cookieName = 'bim_token', maxAge = 7 * 24 * 60 * 60 * 1000) {
+  const crossSite = isCrossSite();
   res.cookie(cookieName, token, {
     httpOnly: true,
-    secure:   process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure:   process.env.NODE_ENV === 'production' || crossSite,
+    sameSite: crossSite ? 'none' : 'strict',
     maxAge,
     path: '/',
   });
 }
 
 export function clearAuthCookie(res, cookieName = 'bim_token') {
-  res.clearCookie(cookieName, { httpOnly: true, sameSite: 'strict', path: '/' });
+  const crossSite = isCrossSite();
+  res.clearCookie(cookieName, {
+    httpOnly: true,
+    secure:   process.env.NODE_ENV === 'production' || crossSite,
+    sameSite: crossSite ? 'none' : 'strict',
+    path: '/',
+  });
 }
 
 export function getToken(req, cookieName = 'bim_token') {

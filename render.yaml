@@ -1,9 +1,11 @@
 services:
+  # ─── BACKEND WEB SERVICE ──────────────────────────────────────────
   - type: web
-    name: one-in-a-million
+    name: one-in-a-million-backend
     runtime: node
     plan: free
-    buildCommand: npm run build:render
+    rootDir: server
+    buildCommand: npm install
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
@@ -16,8 +18,8 @@ services:
         generateValue: true
       - key: CLIENT_URL
         sync: false
-      - key: VITE_MAPTILER_API_KEY
-        sync: false
+      - key: COOKIE_CROSS_SITE
+        value: "true"
       - key: MAPTILER_API_KEY
         sync: false
       - key: BREVO_API_KEY
@@ -47,3 +49,18 @@ services:
       - key: VAPID_PRIVATE_KEY
         sync: false
 
+  # ─── FRONTEND STATIC SITE ─────────────────────────────────────────
+  - type: static
+    name: one-in-a-million-frontend
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_MAPTILER_API_KEY
+        sync: false
