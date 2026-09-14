@@ -18,6 +18,23 @@ export function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   return fetch(targetUrl, { ...fetchOptions, signal: controller.signal })
+    .then(res => {
+      // Wrap .json() so callers never crash on empty / non-JSON bodies
+      const originalJson = res.json.bind(res);
+      let bodyConsumed = false;
+      res.json = async () => {
+        if (bodyConsumed) return { ok: false, error: 'Response body already consumed' };
+        bodyConsumed = true;
+        try {
+          const text = await res.clone().text();
+          if (!text) return { ok: false, error: 'Empty response from server' };
+          return JSON.parse(text);
+        } catch {
+          return { ok: false, error: 'Server returned an invalid response' };
+        }
+      };
+      return res;
+    })
     .finally(() => clearTimeout(timer))
     .catch(err => {
       if (err.name === 'AbortError') {
@@ -25,6 +42,18 @@ export function fetchWithTimeout(url, options = {}) {
       }
       throw err;
     });
+}
+
+/**
+ * safeJson — safely parse a fetch Response as JSON.
+ * Returns the parsed object, or { ok: false, error: '...' } if the body
+ * is empty / not valid JSON (e.g. HTML from a misconfigured proxy).
+ */
+export async function safeJson(res) {
+  const text = await res.text();
+  if (!text) return { ok: false, error: 'Empty response from server' };
+  try { return JSON.parse(text); }
+  catch { return { ok: false, error: 'Server returned an invalid response' }; }
 }
 
 export function retryFetchWithTimeout(url, options = {}, retries = 3) {
@@ -36,6 +65,22 @@ export function retryFetchWithTimeout(url, options = {}, retries = 3) {
       const timer = setTimeout(() => controller.abort(), timeout);
       fetch(targetUrl, { ...fetchOptions, signal: controller.signal })
         .finally(() => clearTimeout(timer))
+        .then(res => {
+          const originalJson = res.json.bind(res);
+          let bodyConsumed = false;
+          res.json = async () => {
+            if (bodyConsumed) return { ok: false, error: 'Response body already consumed' };
+            bodyConsumed = true;
+            try {
+              const text = await res.clone().text();
+              if (!text) return { ok: false, error: 'Empty response from server' };
+              return JSON.parse(text);
+            } catch {
+              return { ok: false, error: 'Server returned an invalid response' };
+            }
+          };
+          return res;
+        })
         .then(resolve)
         .catch(err => {
           if (n > 0) {

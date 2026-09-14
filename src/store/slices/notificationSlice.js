@@ -1,4 +1,4 @@
-import { fetchWithTimeout } from '../../lib/utils';
+import { fetchWithTimeout, safeJson } from '../../lib/utils';
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 // Cookie-based auth — credentials: 'include' sends the HttpOnly cookie automatically
@@ -8,7 +8,7 @@ const credentialsOpts = { credentials: 'include' };
 export const fetchNotifications = createAsyncThunk('notifications/fetch', async () => {
   const res = await fetchWithTimeout('/api/notifications', credentialsOpts);
   if (!res.ok) throw new Error('Failed to fetch');
-  return res.json(); // { notifications, unreadCount }
+  return safeJson(res); // { notifications, unreadCount }
 });
 
 export const markOneRead = createAsyncThunk('notifications/markOne', async (id) => {

@@ -1,5 +1,5 @@
 import SEOHead from '../components/SEOHead';
-import { fetchWithTimeout, distanceMeters, straightLineRoute } from '../lib/utils';
+import { fetchWithTimeout, safeJson, distanceMeters, straightLineRoute } from '../lib/utils';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
@@ -129,7 +129,7 @@ function RegisterEmailFlow() {
 
   const api = async (url, body) => {
     const res  = await fetchWithTimeout(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
-    const data = await res.json();
+    const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Something went wrong');
     return data;
   };
@@ -279,7 +279,7 @@ function LoginEmailPasswordFlow() {
 
   const api = async (url, body) => {
     const res  = await fetchWithTimeout(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
-    const data = await res.json();
+    const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Something went wrong');
     return data;
   };
@@ -524,7 +524,7 @@ function TrackDelivery({ order }) {
           end: { lat: o.customerLocation.lat, lng: o.customerLocation.lng }
         })
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok && data.route?.routes?.[0]?.geometry?.coordinates) {
         setRouteGeometry(data.route.routes[0].geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] })));
       } else {
@@ -669,7 +669,7 @@ function ReviewModal({ order, onClose, onSuccess }) {
       const fd = new FormData();
       fd.append('image', file);
       const res  = await fetchWithTimeout('/api/upload', { method: 'POST', credentials: 'include', body: fd });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) setPhotos(p => [...p, data.url]);
       else setError(data.error || 'Upload failed');
     } catch { setError('Upload failed'); }
@@ -686,7 +686,7 @@ function ReviewModal({ order, onClose, onSuccess }) {
         credentials: 'include',
         body: JSON.stringify({ orderId: order.orderId || order._id, rating, comment, photos }),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) { onSuccess(data.review); onClose(); }
       else setError(data.error || 'Failed to submit');
     } catch { setError('Network error'); }
@@ -824,7 +824,7 @@ function OrderCard({ order, myReviews, onReviewSubmit }) {
         method: 'POST',
         credentials: 'include',
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) window.location.reload();
     } catch {}
     setCancelLoading(false);
@@ -963,7 +963,7 @@ function ReservationsList() {
     try {
       const res = await fetchWithTimeout('/api/reservations/my', { credentials: 'include' });
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJson(res);
         setReservations(data.reservations || []);
       }
     } catch {}
@@ -984,7 +984,7 @@ function ReservationsList() {
         credentials: 'include',
         body: JSON.stringify({ reservationId: id }),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) fetchReservations();
     } catch {}
     setCancelLoading(null);
@@ -1140,7 +1140,7 @@ export default function AccountPage({ initialTab }) {
     setOrdersLoading(true);
     try {
       const res  = await fetchWithTimeout('/api/orders/my', { credentials: 'include' });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) setOrders(data.orders);
     } catch {}
     setOrdersLoading(false);
@@ -1149,7 +1149,7 @@ export default function AccountPage({ initialTab }) {
   const fetchMyReviews = async () => {
     try {
       const res  = await fetchWithTimeout('/api/reviews/my', { credentials: 'include' });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) setMyReviews(data.reviews);
     } catch {}
   };
@@ -1198,7 +1198,7 @@ export default function AccountPage({ initialTab }) {
     try {
       const fd = new FormData(); fd.append('photo', file);
       const res  = await fetchWithTimeout('/api/auth/profile/photo', { method: 'POST', credentials: 'include', body: fd });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) dispatch(updateUser({ photoUrl: data.photoUrl }));
     } catch {}
     setPhotoUploading(false);
@@ -1209,7 +1209,7 @@ export default function AccountPage({ initialTab }) {
     setPwLoading(true); setPwMsg('');
     try {
       const res  = await fetchWithTimeout('/api/auth/change-password/send-otp', { method: 'POST', credentials: 'include' });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) { setPwStep(1); setPwCooldown(60); }
       else setPwMsg(data.error || 'Failed');
     } catch { setPwMsg('Network error'); }
@@ -1225,7 +1225,7 @@ export default function AccountPage({ initialTab }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ otp: pwOtp, newPassword: pwNew }),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) { setPwStep(0); setPwMsg(''); setPwOtp(''); setPwNew(''); setPwConfirm(''); }
       else setPwMsg(data.error || 'Failed');
     } catch { setPwMsg('Network error'); }
@@ -1241,7 +1241,7 @@ export default function AccountPage({ initialTab }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: newEmail }),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) { setEmailStep(1); setEmailCd(60); }
       else setEmailMsg2(data.error || 'Failed');
     } catch { setEmailMsg2('Network error'); }
@@ -1255,7 +1255,7 @@ export default function AccountPage({ initialTab }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: newEmail, otp: emailOtp2 }),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) { dispatch(updateUser({ email: newEmail, isEmailVerified: true })); setEmailStep(0); setNewEmail(''); setEmailOtp2(''); setEmailMsg2('✅ Email updated!'); }
       else setEmailMsg2(data.error || 'Failed');
     } catch { setEmailMsg2('Network error'); }
@@ -1277,7 +1277,7 @@ export default function AccountPage({ initialTab }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ addresses }),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) { dispatch(updateUser({ savedAddresses: data.addresses || addresses })); setAddrModal(null); }
       else setAddrMsg(data.error || 'Failed');
     } catch { setAddrMsg('Network error'); }
@@ -1291,7 +1291,7 @@ export default function AccountPage({ initialTab }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ addresses }),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) dispatch(updateUser({ savedAddresses: data.addresses || addresses }));
     } catch {}
   };
@@ -1305,7 +1305,7 @@ export default function AccountPage({ initialTab }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ addresses }),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) dispatch(updateUser({ savedAddresses: data.addresses || addresses }));
     } catch {}
   };
@@ -1319,7 +1319,7 @@ export default function AccountPage({ initialTab }) {
         credentials: 'include',
         body: JSON.stringify(profileForm),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.ok) { dispatch(updateUser(data.user)); setProfileMsg('Saved!'); }
       else setProfileMsg(data.error || 'Failed');
     } catch { setProfileMsg('Network error'); }

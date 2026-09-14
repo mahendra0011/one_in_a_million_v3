@@ -1,4 +1,4 @@
-import { fetchWithTimeout } from '../../lib/utils';
+import { fetchWithTimeout, safeJson } from '../../lib/utils';
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 // ─── localStorage helpers ─────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ const credentialsOpts = { credentials: 'include' };
 export const fetchServerCart = createAsyncThunk('cart/fetchServer', async () => {
   const res = await fetchWithTimeout(API, credentialsOpts);
   if (!res.ok) throw new Error('fetch failed');
-  const data = await res.json();
+  const data = await safeJson(res);
   return data.cart; // null if no server cart yet
 });
 
@@ -65,7 +65,7 @@ export const validateCartItems = createAsyncThunk('cart/validate', async (_, { g
   // Use server GET which validates internally (only works when logged in via cookie)
   const res = await fetchWithTimeout(API, credentialsOpts);
   if (!res.ok) return cart.items; // not logged in or error — skip server validation
-  const data = await res.json();
+  const data = await safeJson(res);
   return data.cart ? data.cart.items : cart.items;
 });
 
