@@ -50,9 +50,9 @@ services:
         sync: false
 
   # ─── FRONTEND STATIC SITE ─────────────────────────────────────────
-  - type: static
+  - type: web
     name: one-in-a-million-frontend
-    plan: free
+    runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     routes:
