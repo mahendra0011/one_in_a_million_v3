@@ -77,8 +77,17 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://apis.google.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https:"],
-      imgSrc: ["'self'", "data:", "https:", "https://res.cloudinary.com"],
-      connectSrc: ["'self'", process.env.CLIENT_URL || "http://localhost:5173"],
+      imgSrc: ["'self'", "data:", "https:", "https://res.cloudinary.com", "https://api.maptiler.com", "https://*.maptiler.com"],
+      connectSrc: [
+        "'self'",
+        "https://api.maptiler.com",
+        "https://*.maptiler.com",
+        process.env.CLIENT_URL,
+        process.env.RENDER_EXTERNAL_URL,
+        "http://localhost:5173"
+      ].filter(Boolean),
+      workerSrc: ["'self'", "blob:"],
+      childSrc: ["blob:"],
       fontSrc: ["'self'", "https:", "data:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -112,7 +121,11 @@ app.use((req, res, next) => {
 });
 
 // ─── CORS CONFIGURATION ───────────────────────────────────────────────────────────
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [process.env.CLIENT_URL || 'http://localhost:5173'];
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [
+  process.env.CLIENT_URL,
+  process.env.RENDER_EXTERNAL_URL,
+  'http://localhost:5173'
+].filter(Boolean);
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -165,7 +178,18 @@ app.use(fileUpload({
 app.use('/api', generalLimiter);
 
 const server = createServer(app);
-const io = new Server(server, { cors: { origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true } });
+const io = new Server(server, {
+  cors: {
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true
+  }
+});
 
 // ─── REDIS ADAPTER FOR SOCKET.IO ───────────────────────────────────────────────
 if (process.env.REDIS_URL) {
@@ -2145,10 +2169,12 @@ redirect_uri: `${process.env.SERVER_URL || 'http://localhost:3001'}/api/auth/goo
     
     const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     setAuthCookie(res, token, 'bim_token', 7 * 24 * 60 * 60 * 1000);
-    res.redirect(process.env.CLIENT_URL || 'http://localhost:5173');
+    const targetUrl = process.env.CLIENT_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:5173';
+    res.redirect(targetUrl);
   } catch (err) {
     console.error('Google OAuth error:', err.message);
-    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/account?error=google_auth_failed`);
+    const targetUrl = process.env.CLIENT_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:5173';
+    res.redirect(`${targetUrl}/account?error=google_auth_failed`);
   }
 });
 
