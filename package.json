@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "cd server && node index.js",
-    "build:render": "npm install && cd server && npm install && cd .. && npm run build",
+    "build:render": "npm install --include=dev && cd server && npm install && cd .. && npm run build",
     "dev": "concurrently -n SERVER,VITE -c blue,green --delay 4000 \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "cd server && npm run dev",
     "dev:client": "vite",
